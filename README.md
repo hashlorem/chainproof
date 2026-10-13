@@ -60,6 +60,19 @@ Photos from the emulator's camera often come out black. That's an emulator limit
 
 Demo accounts: `investigator@`, `supervisor@` and `auditor@chainproof.dev`. The password is `chainproof123`.
 
+### Presentation mode: public https addresses
+
+```bash
+./demo.sh
+```
+
+This runs the API and web app on this laptop and opens two free Cloudflare tunnels, so a real phone works on any network and the QR codes in PDFs open for anyone. It prints the web address, the API address and the command for the phone app. Press Ctrl+C to stop everything.
+
+- **Install first:** `brew install cloudflared`. No account is needed.
+- **Addresses change:** you get new ones every run.
+- **Passwords:** the app is public while the tunnel is open. Change the demo passwords first: click your name to change yours, and supervisors use **Users → Reset password** for the others. The script warns you if any account still uses `chainproof123`.
+- **Video size:** Cloudflare's free tunnel rejects uploads over 100 MB, so phone videos stop at 90 MB.
+
 ### Postgres instead of SQLite
 
 ```bash
@@ -72,7 +85,7 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 35 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations
+cd server && uv run pytest                # 36 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
 
 # Same server suite against Postgres (the database is wiped first, so use a throwaway one):

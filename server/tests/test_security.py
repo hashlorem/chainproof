@@ -80,3 +80,19 @@ def test_video_plays_inline_but_svg_does_not(client, investigator, phone, case_i
     ).json()
     r = client.get(f"/evidence/{svg['id']}/file", headers=investigator["headers"])
     assert r.headers["content-type"] == "application/octet-stream" and r.headers["content-disposition"].startswith("attachment;")
+
+
+def test_change_and_reset_password(client, supervisor):
+    body = {"email": "pw.user@test.dev", "name": "Pw User", "password": "first-password", "role": "auditor"}
+    uid = client.post("/auth/users", json=body, headers=supervisor["headers"]).json()["id"]
+    tok = client.post("/auth/login", json={"email": body["email"], "password": "first-password"}).json()["token"]
+    h = {"Authorization": f"Bearer {tok}"}
+
+    assert client.post("/auth/password", json={"current_password": "wrong", "new_password": "second-password"}, headers=h).status_code == 400
+    assert client.post("/auth/password", json={"current_password": "first-password", "new_password": "second-password"}, headers=h).status_code == 200
+    assert client.post("/auth/login", json={"email": body["email"], "password": "second-password"}).status_code == 200
+
+    # Only supervisors reset other people's passwords.
+    assert client.post(f"/auth/users/{uid}/password", json={"new_password": "third-password"}, headers=h).status_code == 403
+    assert client.post(f"/auth/users/{uid}/password", json={"new_password": "third-password"}, headers=supervisor["headers"]).status_code == 200
+    assert client.post("/auth/login", json={"email": body["email"], "password": "third-password"}).status_code == 200

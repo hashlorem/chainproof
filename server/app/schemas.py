@@ -15,6 +15,15 @@ class UserCreate(BaseModel):
     role: str = Field(pattern="^(" + "|".join(ROLES) + ")$")
 
 
+class PasswordChangeIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+
+class PasswordResetIn(BaseModel):
+    new_password: str = Field(min_length=8)
+
+
 class DeviceIn(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     public_key_hex: str = Field(pattern="^[0-9a-f]{64}$")

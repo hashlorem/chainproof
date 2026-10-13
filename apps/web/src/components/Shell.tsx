@@ -53,9 +53,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
           <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="text-muted">
+            <Link href="/account" className="text-muted hover:text-ink" title="Change password">
               {user.name} · <span className="capitalize">{user.role}</span>
-            </span>
+            </Link>
             <button onClick={() => { logout(); router.replace("/login"); }} className="text-muted hover:text-ink">
               Sign out
             </button>

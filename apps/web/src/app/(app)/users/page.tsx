@@ -37,7 +37,10 @@ export default function UsersPage() {
                   <div className="text-sm font-medium">{u.name}</div>
                   <div className="text-xs text-muted">{u.email}</div>
                 </div>
-                <Pill tone={u.role === "supervisor" ? "info" : u.role === "auditor" ? "neutral" : "ok"}>{u.role}</Pill>
+                <div className="flex items-center gap-2">
+                  <Pill tone={u.role === "supervisor" ? "info" : u.role === "auditor" ? "neutral" : "ok"}>{u.role}</Pill>
+                  {u.id !== user.id && <ResetPassword u={u} />}
+                </div>
               </li>
             ))}
           </ul>
@@ -91,5 +94,33 @@ function NewUser({ onCreated }: { onCreated: () => void }) {
         {error && <div className="sm:col-span-2"><ErrorBox>{error}</ErrorBox></div>}
       </form>
     </Card>
+  );
+}
+
+function ResetPassword({ u }: { u: User }) {
+  const [open, setOpen] = useState(false);
+  const [pw, setPw] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  if (!open) return <Button variant="ghost" onClick={() => { setOpen(true); setMsg(null); }}>Reset password</Button>;
+  return (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        try {
+          await api.post(`/auth/users/${u.id}/password`, { new_password: pw });
+          setMsg("Done");
+          setOpen(false);
+          setPw("");
+        } catch (err) {
+          setMsg(err instanceof Error ? err.message : String(err));
+        }
+      }}
+    >
+      <input className={`${inputClass} w-48`} type="password" placeholder="New password" minLength={8} value={pw} onChange={(e) => setPw(e.target.value)} required autoFocus autoComplete="new-password" />
+      <Button type="submit">Save</Button>
+      <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+      {msg && <span className="text-xs text-muted">{msg}</span>}
+    </form>
   );
 }

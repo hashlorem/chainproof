@@ -12,7 +12,8 @@ from PIL import Image, ImageDraw
 from app.forensics.common import finding, png_b64
 
 MIN_DISTANCE = 30  # px: ignore matches between neighbouring points
-MIN_CLUSTER = 12   # pairs with the same shift needed to call it a clone
+MIN_CLUSTER = 8    # pairs sharing one shift needed to call it a clone. Lower finds more clones, but repeating
+                   # patterns in real photos (bricks, tiles, windows) can then cause false alarms.
 SHIFT_BIN = 6      # px tolerance when grouping shifts
 
 
@@ -40,16 +41,32 @@ def analyze(img: Image.Image) -> dict:
             a, b = b, a
         pairs.append((a, b))
 
-    shifts = Counter(tuple(np.round((b - a) / SHIFT_BIN).astype(int)) for a, b in pairs)
-    clusters = [(s, n) for s, n in shifts.most_common(3) if n >= MIN_CLUSTER]
+    bins = [tuple(np.round((b - a) / SHIFT_BIN).astype(int)) for a, b in pairs]
+    counts = Counter(bins)
+
+    def near(s1, s2) -> bool:
+        # A shift that lands right on a bin edge can round either way, so neighbouring bins count together.
+        return abs(s1[0] - s2[0]) <= 1 and abs(s1[1] - s2[1]) <= 1
+
+    clusters, used = [], set()
+    for center, _ in counts.most_common():
+        if center in used:
+            continue
+        members = {s for s in counts if near(s, center) and s not in used}
+        n = sum(counts[s] for s in members)
+        if n >= MIN_CLUSTER:
+            clusters.append((members, n))
+            used |= members
+        if len(clusters) == 3:
+            break
     if not clusters:
         return empty | {"pairs": len(pairs)}
 
     overlay = img.copy()
     draw = ImageDraw.Draw(overlay)
     regions = []
-    for shift, n in clusters:
-        sel = [(a, b) for a, b in pairs if tuple(np.round((b - a) / SHIFT_BIN).astype(int)) == shift]
+    for members, n in clusters:
+        sel = [(a, b) for (a, b), s in zip(pairs, bins) if s in members]
         src, dst = np.array([a for a, _ in sel]), np.array([b for _, b in sel])
         for pts, color in ((src, (255, 200, 0)), (dst, (255, 40, 40))):
             x0, y0 = pts.min(axis=0) - 8

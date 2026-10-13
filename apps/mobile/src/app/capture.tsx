@@ -16,6 +16,7 @@ type Phase =
   | { kind: "error"; message: string };
 
 const MAX_VIDEO_SECONDS = 120;
+const MAX_VIDEO_BYTES = 90 * 1024 * 1024; // Cloudflare's free tunnel rejects requests over 100 MB
 
 export default function Capture() {
   const { caseId } = useLocalSearchParams<{ caseId: string }>();
@@ -69,7 +70,7 @@ export default function Capture() {
     const startedAt = new Date();
     setPhase({ kind: "recording", startedAt });
     try {
-      const video = await camera.current.recordAsync({ maxDuration: MAX_VIDEO_SECONDS });
+      const video = await camera.current.recordAsync({ maxDuration: MAX_VIDEO_SECONDS, maxFileSize: MAX_VIDEO_BYTES });
       if (!video) throw new Error("Recording failed");
       await seal(video.uri, startedAt, "video/mp4");
     } catch (e) {

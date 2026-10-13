@@ -10,8 +10,9 @@ import { Button, ErrorText, T } from "@/ui";
 export default function Login() {
   const t = useTheme();
   const { signIn } = useSession();
-  // On a real phone "localhost" is the phone itself: use your computer's LAN address, e.g. http://192.168.1.20:8000
-  const [server, setServer] = useState(getServerUrl() ?? "http://192.168.1.20:8000");
+  // On a real phone "localhost" is the phone itself: use your computer's LAN address, e.g. http://192.168.1.20:8000.
+  // demo.sh passes its tunnel address in EXPO_PUBLIC_API_URL so nobody has to type it.
+  const [server, setServer] = useState(process.env.EXPO_PUBLIC_API_URL ?? getServerUrl() ?? "http://192.168.1.20:8000");
   const [email, setEmail] = useState("investigator@chainproof.dev");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.security import create_token, current_user, hash_password, login_limiter, require_role, verify_password
 from app.db import get_db
 from app.models import User
-from app.schemas import LoginIn, UserCreate
+from app.schemas import LoginIn, PasswordChangeIn, PasswordResetIn, UserCreate
 from app.serializers import user_out
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -43,3 +43,26 @@ def create_user(body: UserCreate, _: User = Depends(require_role("supervisor")),
     db.add(user)
     db.commit()
     return user_out(user)
+
+
+@router.post("/password")
+def change_password(body: PasswordChangeIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if not verify_password(user.password_hash, body.current_password):
+        raise HTTPException(400, "Current password is wrong")
+    if body.new_password == body.current_password:
+        raise HTTPException(400, "Choose a different password")
+    user.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/users/{user_id}/password")
+def reset_password(
+    user_id: str, body: PasswordResetIn, _: User = Depends(require_role("supervisor")), db: Session = Depends(get_db)
+):
+    target = db.get(User, user_id)
+    if target is None:
+        raise HTTPException(404, "User not found")
+    target.password_hash = hash_password(body.new_password)
+    db.commit()
+    return {"ok": True}
