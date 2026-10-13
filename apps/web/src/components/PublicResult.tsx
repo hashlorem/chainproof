@@ -1,0 +1,73 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { API_URL, formatTs, type Check } from "@/lib/api";
+import { CheckPill, ErrorBox, Hash, Loading } from "./ui";
+
+type Match = {
+  evidence_id: string; case_reference: string; received_at: string; captured_at: string | null;
+  provenance: string; tsa_time: string | null; intact: boolean; checks: Record<string, Check>;
+};
+type Result =
+  | { sha256: string; found: false }
+  | { sha256: string; found: true; kind: "evidence"; matches: Match[] }
+  | { sha256: string; found: true; kind: "report"; report: { case_reference: string; generated_at: string } };
+
+const CHECK_LABEL: Record<string, string> = {
+  file_hash: "Stored file unchanged",
+  device_signature: "Signed on device at capture",
+  trusted_timestamp: "Trusted timestamp",
+  chain_of_custody: "Chain of custody",
+};
+
+export function PublicResult({ sha256 }: { sha256: string }) {
+  const [result, setResult] = useState<Result | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setResult(null);
+    fetch(`${API_URL}/public/verify/${sha256}`)
+      .then(async (r) => (r.ok ? setResult(await r.json()) : setError((await r.json()).detail ?? r.statusText)))
+      .catch((e) => setError(String(e)));
+  }, [sha256]);
+
+  if (error) return <ErrorBox>{error}</ErrorBox>;
+  if (!result) return <Loading label="Looking up the record…" />;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted">SHA-256 <Hash value={sha256} short={0} /></p>
+      {!result.found ? (
+        <div className="rounded-xl border border-bad/30 bg-bad-bg p-4">
+          <div className="text-lg font-semibold text-bad">No matching record</div>
+          <p className="text-sm">This exact file is not registered with ChainProof. If it should be, it has been changed, even by one byte.</p>
+        </div>
+      ) : result.kind === "report" ? (
+        <div className="rounded-xl border border-ok/30 bg-ok-bg p-4">
+          <div className="text-lg font-semibold text-ok">Authentic ChainProof report</div>
+          <p className="text-sm">Generated {formatTs(result.report.generated_at)} for case #{result.report.case_reference}. This PDF has not been changed since.</p>
+        </div>
+      ) : (
+        result.matches.map((m) => (
+          <div key={m.evidence_id} className={`rounded-xl border p-4 ${m.intact ? "border-ok/30 bg-ok-bg" : "border-bad/30 bg-bad-bg"}`}>
+            <div className={`text-lg font-semibold ${m.intact ? "text-ok" : "text-bad"}`}>
+              {m.intact ? "Registered evidence, intact" : "Registered evidence, but its record failed a check"}
+            </div>
+            <p className="text-sm">
+              Case #{m.case_reference} · received {formatTs(m.received_at)}
+              {m.captured_at && <> · captured {formatTs(m.captured_at)}</>}
+              {m.tsa_time && <> · existed by {formatTs(m.tsa_time)} (trusted timestamp)</>}
+            </p>
+            <ul className="mt-3 space-y-1.5">
+              {Object.entries(m.checks).map(([k, c]) => (
+                <li key={k} className="flex flex-wrap items-center gap-2 text-sm">
+                  <CheckPill ok={c.ok} /> <span className="font-medium">{CHECK_LABEL[k] ?? k}</span> <span className="text-muted">— {c.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}

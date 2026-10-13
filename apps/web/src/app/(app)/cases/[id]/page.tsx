@@ -1,0 +1,232 @@
+"use client";
+
+import { verifyChain, type ChainCheck } from "@chainproof/shared";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useMemo, useState } from "react";
+import { AuthedImage } from "@/components/AuthedImage";
+import { CustodyTimeline } from "@/components/CustodyTimeline";
+import { Dropzone } from "@/components/Dropzone";
+import { MapView, type MapPoint } from "@/components/MapView";
+import { Button, Card, CheckPill, ErrorBox, Hash, Loading, Pill, inputClass } from "@/components/ui";
+import { api, formatBytes, formatTs, type Case, type CustodyResponse, type Evidence, type User, type Verification } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { useApi } from "@/lib/useApi";
+
+type CaseDetail = Case & { evidence: Evidence[] };
+
+const VERDICT_TONE = { verified_capture: "ok", no_signs: "ok", suspicious: "warn", likely_manipulated: "bad", ai_generated: "bad" } as const;
+
+export default function CasePage() {
+  const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const caseQ = useApi<CaseDetail>(`/cases/${id}`);
+  const custodyQ = useApi<CustodyResponse>(`/cases/${id}/custody`);
+  const usersQ = useApi<User[]>("/auth/users");
+  const [verification, setVerification] = useState<Verification | null>(null);
+  const [localCheck, setLocalCheck] = useState<ChainCheck | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [showTransfer, setShowTransfer] = useState(false);
+
+  const users = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
+  const c = caseQ.data;
+  const evidenceNames = useMemo(() => new Map((c?.evidence ?? []).map((e, i) => [e.id, `E${i + 1} ${e.filename}`])), [c]);
+  const points = useMemo<MapPoint[]>(
+    () => (c?.evidence ?? []).flatMap((e, i) => (e.manifest.gps ? [{ ...e.manifest.gps, label: `E${i + 1} · ${e.filename}` }] : [])),
+    [c],
+  );
+  const checksById = useMemo(() => new Map((verification?.evidence ?? []).map((v) => [v.evidence_id, v])), [verification]);
+  const canWrite = user?.role !== "auditor";
+
+  async function run(label: string, fn: () => Promise<void>) {
+    setBusy(label);
+    setError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const verify = () =>
+    run("verify", async () => {
+      const report = await api.post<Verification>(`/cases/${id}/verify`);
+      // Don't just trust the server: download the chain and re-check every hash and signature in this browser.
+      const custody = await api.get<CustodyResponse>(`/cases/${id}/custody`);
+      setLocalCheck(verifyChain(custody.entries, custody.server_public_key_hex));
+      setVerification(report);
+      custodyQ.setData(custody);
+    });
+
+  const exportPdf = () =>
+    run("pdf", async () => {
+      const { blob } = await api.blob(`/cases/${id}/report`, { method: "POST" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `chainproof-${id.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      await custodyQ.reload();
+    });
+
+  const importFile = (file: File) =>
+    run("upload", async () => {
+      const fd = new FormData();
+      fd.append("file", file);
+      await api.post(`/cases/${id}/evidence`, fd);
+      await Promise.all([caseQ.reload(), custodyQ.reload()]);
+    });
+
+  if (caseQ.error) return <ErrorBox>{caseQ.error}</ErrorBox>;
+  if (!c) return <Loading />;
+  const brokenAt = verification && !verification.chain.ok ? verification.chain.broken_at : localCheck && !localCheck.ok ? localCheck.brokenAt : null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Link href="/" className="text-sm text-muted hover:text-ink">← Cases</Link>
+          <h1 className="text-2xl font-semibold tracking-tight">{c.title}</h1>
+          <p className="text-sm text-muted">
+            <span className="font-mono">#{c.id.slice(0, 8).toUpperCase()}</span> · opened {formatTs(c.created_at)} · custodian{" "}
+            <b className="font-medium text-ink">{users.get(c.custodian_id)?.name ?? "…"}</b>
+          </p>
+          {c.description && <p className="mt-2 max-w-2xl text-sm">{c.description}</p>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={verify} busy={busy === "verify"}>Verify integrity</Button>
+          <Button variant="secondary" onClick={exportPdf} busy={busy === "pdf"}>Export PDF</Button>
+          {canWrite && <Button variant="secondary" onClick={() => setShowTransfer((s) => !s)}>Transfer custody</Button>}
+        </div>
+      </div>
+
+      {error && <ErrorBox>{error}</ErrorBox>}
+      {showTransfer && <Transfer caseId={id} users={usersQ.data ?? []} currentId={c.custodian_id} onDone={() => { setShowTransfer(false); caseQ.reload(); custodyQ.reload(); }} />}
+      {verification && <VerificationBanner v={verification} local={localCheck} />}
+
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
+        <div className="space-y-6">
+          <Card title={`Evidence (${c.evidence.length})`}>
+            {c.evidence.length === 0 && <p className="mb-4 text-sm text-muted">No evidence yet. Capture photos with the ChainProof phone app, or import a file below.</p>}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {c.evidence.map((e, i) => (
+                <EvidenceCard key={e.id} e={e} index={i + 1} check={checksById.get(e.id)} />
+              ))}
+            </div>
+            {canWrite && c.status === "open" && (
+              <div className="mt-4">
+                <Dropzone onFile={importFile} disabled={busy === "upload"}>
+                  <div>
+                    <p className="font-medium">{busy === "upload" ? "Uploading…" : "Import a file"}</p>
+                    <p className="text-muted">Drop a file or click to choose. Imported files have no capture signature. Use the phone app for signed evidence.</p>
+                  </div>
+                </Dropzone>
+              </div>
+            )}
+          </Card>
+          <Card title="Where evidence was captured">
+            <MapView points={points} />
+          </Card>
+        </div>
+
+        <Card title="Chain of custody" actions={<span className="text-xs text-muted">{custodyQ.data?.entries.length ?? 0} entries</span>}>
+          {custodyQ.data ? (
+            <CustodyTimeline entries={custodyQ.data.entries} users={users} brokenAt={brokenAt} evidenceNames={evidenceNames} />
+          ) : (
+            <Loading />
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function EvidenceCard({ e, index, check }: { e: Evidence; index: number; check?: Verification["evidence"][number] }) {
+  return (
+    <Link href={`/evidence/${e.id}`} className="group overflow-hidden rounded-lg border border-border transition hover:border-accent">
+      {e.mime.startsWith("image/") ? (
+        <AuthedImage path={`/evidence/${e.id}/thumbnail.jpg`} alt={e.filename} className="aspect-[4/3] w-full object-cover" />
+      ) : (
+        <div className="grid aspect-[4/3] place-items-center bg-surface-2 font-mono text-xs text-muted">{e.mime}</div>
+      )}
+      <div className="space-y-1.5 p-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate text-sm font-medium group-hover:text-accent">E{index} · {e.filename}</span>
+          {check && <CheckPill ok={check.ok}>{check.ok ? "intact" : "failed"}</CheckPill>}
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {e.provenance === "device_signed" ? <Pill tone="ok">Signed capture</Pill> : <Pill>Imported</Pill>}
+          {e.tsa_status === "stamped" && <Pill tone="info">Timestamped</Pill>}
+          {e.forensics_label && <Pill tone={VERDICT_TONE[e.forensics_verdict!]}>{e.forensics_label}</Pill>}
+        </div>
+        <div className="flex justify-between text-xs text-muted">
+          <Hash value={e.sha256} short={8} />
+          <span>{formatBytes(e.size)}</span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function VerificationBanner({ v, local }: { v: Verification; local: ChainCheck | null }) {
+  return (
+    <div className={`rounded-xl border p-4 ${v.ok ? "border-ok/30 bg-ok-bg" : "border-bad/30 bg-bad-bg"}`}>
+      <div className={`text-lg font-semibold ${v.ok ? "text-ok" : "text-bad"}`}>
+        {v.ok ? "All integrity checks passed" : "Integrity check failed"}
+      </div>
+      <ul className="mt-1 space-y-0.5 text-sm">
+        <li>
+          Server check: chain of {v.chain.length} entries{" "}
+          {v.chain.ok ? "is unbroken and every entry is signed." : <b>is broken at entry #{v.chain.broken_at}: {v.chain.reason}.</b>}
+        </li>
+        {local && (
+          <li>
+            Checked again in your browser:{" "}
+            {local.ok ? `all ${local.length} hashes and server signatures match (including the entry that logs this check).` : <b>broken at entry #{local.brokenAt}: {local.reason}.</b>}
+          </li>
+        )}
+        {v.evidence.filter((e) => !e.ok).map((e) => (
+          <li key={e.evidence_id}>
+            <b>{e.filename}</b>: {Object.values(e.checks).filter((c) => c.ok === false).map((c) => c.detail).join("; ")}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Transfer({ caseId, users, currentId, onDone }: { caseId: string; users: User[]; currentId: string; onDone: () => void }) {
+  const options = users.filter((u) => u.id !== currentId && u.role !== "auditor");
+  const [to, setTo] = useState(options[0]?.id ?? "");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Card title="Transfer custody">
+      <form
+        className="flex flex-wrap gap-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          try {
+            await api.post(`/cases/${caseId}/transfer`, { to_user_id: to, reason });
+            onDone();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+            setBusy(false);
+          }
+        }}
+      >
+        <select className={`${inputClass} max-w-56`} value={to} onChange={(e) => setTo(e.target.value)}>
+          {options.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.role})</option>)}
+        </select>
+        <input className={`${inputClass} min-w-48 flex-1`} placeholder="Reason, e.g. sent to lab" value={reason} onChange={(e) => setReason(e.target.value)} required />
+        <Button type="submit" busy={busy} disabled={!to}>Transfer</Button>
+      </form>
+      {error && <div className="mt-2"><ErrorBox>{error}</ErrorBox></div>}
+    </Card>
+  );
+}

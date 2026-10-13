@@ -1,0 +1,61 @@
+{
+  "secret_key_hex": "9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
+  "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "manifest": {
+    "evidence_uuid": "5b0c6a8e-2f43-4c1a-9d0e-7f1c2b3a4d5e",
+    "case_id": "c0ffee00-0000-4000-8000-000000000001",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mime": "image/jpeg",
+    "size": 2048576,
+    "captured_at": "2026-10-13T14:03:22.512Z",
+    "gps": {
+      "lat": 41.2995,
+      "lon": 69.2401,
+      "accuracy": 4.5
+    },
+    "device_id": "d0000000-0000-4000-8000-000000000007",
+    "user_id": "u0000000-0000-4000-8000-000000000003",
+    "app_version": "0.1.0"
+  },
+  "signature_hex": "876236f23b6c494a372f7905951273169af664b9d38ec9342b3ff69a70c3787526709a98ce73e4f021b1bdb54ee89e0c28472ac691e4d4bbc1853e9a1ad8640a",
+  "chain": [
+    {
+      "seq": 1,
+      "case_id": "c0ffee00-0000-4000-8000-000000000001",
+      "evidence_id": null,
+      "action": "CASE_OPENED",
+      "actor_id": "u0000000-0000-4000-8000-000000000003",
+      "ts": "2026-10-13T14:04:00.000000Z",
+      "details": {
+        "title": "Warehouse break-in"
+      },
+      "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "entry_hash": "69628b206d7b5917d803611edcdd6720c8bb8f1ac2534b7ac4c37673bd7f02f1"
+    },
+    {
+      "seq": 2,
+      "case_id": "c0ffee00-0000-4000-8000-000000000001",
+      "evidence_id": "5b0c6a8e-2f43-4c1a-9d0e-7f1c2b3a4d5e",
+      "action": "UPLOADED",
+      "actor_id": "u0000000-0000-4000-8000-000000000003",
+      "ts": "2026-10-13T14:05:00.000000Z",
+      "details": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "size": 2048576
+      },
+      "prev_hash": "69628b206d7b5917d803611edcdd6720c8bb8f1ac2534b7ac4c37673bd7f02f1",
+      "entry_hash": "8d8d91549aa4311056e589f50ffdd28ee0d47d8f0367b4895d831ce63fbc8959"
+    },
+    {
+      "seq": 3,
+      "case_id": "c0ffee00-0000-4000-8000-000000000001",
+      "evidence_id": "5b0c6a8e-2f43-4c1a-9d0e-7f1c2b3a4d5e",
+      "action": "VIEWED",
+      "actor_id": "u0000000-0000-4000-8000-000000000003",
+      "ts": "2026-10-13T14:06:00.000000Z",
+      "details": {},
+      "prev_hash": "8d8d91549aa4311056e589f50ffdd28ee0d47d8f0367b4895d831ce63fbc8959",
+      "entry_hash": "2c3165e4f91fe4135261d67dad9c2bece426fe8dbf2f5b4a7ff5dbb6d7673143"
+    }
+  ]
+}

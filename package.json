@@ -1,0 +1,10 @@
+{
+  "name": "chainproof",
+  "private": true,
+  "scripts": {
+    "web": "pnpm --filter web dev",
+    "mobile": "pnpm --filter mobile start",
+    "shared:test": "pnpm --filter @chainproof/shared test",
+    "api": "cd server && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+  }
+}
