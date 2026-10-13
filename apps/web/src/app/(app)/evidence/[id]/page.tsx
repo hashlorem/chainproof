@@ -36,6 +36,7 @@ export default function EvidencePage() {
   if (!e) return <Loading />;
   const m = e.manifest;
   const isImage = e.mime.startsWith("image/");
+  const isVideo = e.mime.startsWith("video/");
 
   const analyze = () =>
     run("analyze", async () => {
@@ -77,8 +78,17 @@ export default function EvidencePage() {
       {actionError && <ErrorBox>{actionError}</ErrorBox>}
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
-        <Card title="Preview" actions={isImage && !showOriginal && <Button variant="ghost" onClick={() => setShowOriginal(true)}>Open original</Button>}>
-          {isImage ? (
+        <Card title="Preview" actions={(isImage || isVideo) && !showOriginal && <Button variant="ghost" onClick={() => setShowOriginal(true)}>{isVideo ? "Play original" : "Open original"}</Button>}>
+          {isVideo ? (
+            <div className="space-y-2">
+              {showOriginal ? (
+                <AuthedImage video path={`/evidence/${id}/file?purpose=view`} alt={e.filename} className="max-h-[32rem] w-full rounded-lg bg-black" />
+              ) : (
+                <div className="grid aspect-video place-items-center rounded-lg bg-surface-2 text-sm text-muted">Video · {formatBytes(e.size)}</div>
+              )}
+              <p className="text-xs text-muted">Playing the original is recorded in the chain of custody.</p>
+            </div>
+          ) : isImage ? (
             <div className="space-y-2">
               <AuthedImage
                 path={showOriginal ? `/evidence/${id}/file?purpose=view` : `/evidence/${id}/thumbnail.jpg`}

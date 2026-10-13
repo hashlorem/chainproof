@@ -14,7 +14,7 @@ import json
 from sqlalchemy import select, text
 
 from app.core.chain import compute_entry_hash, entry_dict
-from app.db import _SQLITE_GUARDS, SessionLocal, engine
+from app.db import SessionLocal, custody_guards_disabled, engine
 from app.models import Case, CustodyEntry
 
 
@@ -37,21 +37,11 @@ def main():
         new_hash = compute_entry_hash(forged) if args.smart else entry.entry_hash
 
     print(f'Case "{case.title}" — rewriting entry #{args.seq} ({entry.action}) as a DB superuser...')
-    is_sqlite = engine.dialect.name == "sqlite"
-    with engine.begin() as conn:
-        if is_sqlite:
-            conn.execute(text("DROP TRIGGER custody_no_update"))
-        else:
-            conn.execute(text("ALTER TABLE custody_entries DISABLE TRIGGER custody_append_only"))
+    with engine.begin() as conn, custody_guards_disabled(conn):
         conn.execute(
             text("UPDATE custody_entries SET details = :d, entry_hash = :h WHERE case_id = :c AND seq = :s"),
             {"d": json.dumps(forged["details"]), "h": new_hash, "c": case.id, "s": args.seq},
         )
-        if is_sqlite:
-            for stmt in _SQLITE_GUARDS:
-                conn.execute(text(stmt))
-        else:
-            conn.execute(text("ALTER TABLE custody_entries ENABLE TRIGGER custody_append_only"))
     print("Done. The row is changed and the triggers are back on. Now run Verify in the app.")
 
 

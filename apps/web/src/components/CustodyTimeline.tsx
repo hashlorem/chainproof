@@ -7,6 +7,8 @@ import { Hash, cx } from "./ui";
 
 const ACTION_LABEL: Record<string, string> = {
   CASE_OPENED: "Case opened",
+  CASE_CLOSED: "Case closed",
+  CASE_REOPENED: "Case reopened",
   CAPTURED: "Captured on device",
   UPLOADED: "Uploaded",
   TIMESTAMPED: "Trusted timestamp",
@@ -22,6 +24,8 @@ function describe(e: CustodyEntry, users: Map<string, User>): string | null {
   const d = e.details as Record<string, unknown>;
   switch (e.action) {
     case "CASE_OPENED": return String(d.title ?? "");
+    case "CASE_CLOSED": return `${d.reason} (${d.evidence_count} items sealed)`;
+    case "CASE_REOPENED": return String(d.reason);
     case "CAPTURED": return d.gps ? `GPS ${(d.gps as { lat: number }).lat.toFixed(5)}, ${(d.gps as { lon: number }).lon.toFixed(5)}` : "No GPS";
     case "UPLOADED": return d.provenance === "device_signed" ? "Signed by device" : "Imported file";
     case "TIMESTAMPED": return `Existed by ${formatTs(String(d.tsa_time))}`;

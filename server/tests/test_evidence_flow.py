@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 
-from app.db import engine
+from app.db import custody_guards_disabled, engine
 
 JPEG = b"\xff\xd8\xff\xe0fake-jpeg-bytes" + bytes(range(256))
 
@@ -85,20 +85,14 @@ def test_database_refuses_to_rewrite_custody(phone, case_id):
 
 def _as_attacker_with_db_access(sql: str, **params):
     """Simulates someone who bypasses the API and drops the triggers (like scripts/tamper_demo.py)."""
-    with engine.begin() as conn:
-        conn.execute(text("DROP TRIGGER custody_no_update"))
-        conn.execute(text("DROP TRIGGER custody_no_delete"))
+    with engine.begin() as conn, custody_guards_disabled(conn):
         conn.execute(text(sql), params)
-        from app.db import _SQLITE_GUARDS
-
-        for stmt in _SQLITE_GUARDS:
-            conn.execute(text(stmt))
 
 
 def test_tampered_entry_is_detected(client, investigator, phone, case_id):
     phone.upload(case_id, JPEG)
     _as_attacker_with_db_access(
-        "UPDATE custody_entries SET details = '{\"note\": \"rewritten\"}' WHERE case_id = :c AND seq = 2", c=case_id
+        "UPDATE custody_entries SET details = :d WHERE case_id = :c AND seq = 2", d='{"note": "rewritten"}', c=case_id
     )
     report = client.post(f"/cases/{case_id}/verify", headers=investigator["headers"]).json()
     assert not report["ok"]
@@ -145,3 +139,28 @@ def test_custody_transfer(client, investigator, supervisor, case_id):
     assert r.status_code == 200
     assert r.json()["custodian_id"] == supervisor["user"]["id"]
     assert actions(client, investigator, case_id)[-1] == "TRANSFERRED"
+
+
+def test_close_and_reopen(client, investigator, supervisor, phone, case_id):
+    phone.upload(case_id, JPEG + b"close")
+    r = client.post(f"/cases/{case_id}/close", json={"reason": "Investigation complete"}, headers=investigator["headers"])
+    assert r.status_code == 200 and r.json()["status"] == "closed"
+    assert actions(client, investigator, case_id)[-1] == "CASE_CLOSED"
+
+    assert phone.upload(case_id, JPEG + b"late").status_code == 409
+    r = client.post(f"/cases/{case_id}/transfer", json={"to_user_id": supervisor["user"]["id"], "reason": "x"}, headers=investigator["headers"])
+    assert r.status_code == 409
+    assert client.post(f"/cases/{case_id}/verify", headers=investigator["headers"]).json()["ok"]
+
+    assert client.post(f"/cases/{case_id}/reopen", json={"reason": "New lead"}, headers=investigator["headers"]).status_code == 403
+    r = client.post(f"/cases/{case_id}/reopen", json={"reason": "New lead"}, headers=supervisor["headers"])
+    assert r.status_code == 200 and r.json()["status"] == "open"
+    assert actions(client, investigator, case_id)[-1] == "CASE_REOPENED"
+
+
+def test_only_supervisors_create_users(client, investigator, supervisor):
+    body = {"email": "new.person@test.dev", "name": "New Person", "password": "longenough1", "role": "investigator"}
+    assert client.post("/auth/users", json=body, headers=investigator["headers"]).status_code == 403
+    assert client.post("/auth/users", json=body, headers=supervisor["headers"]).status_code == 201
+    assert client.post("/auth/users", json=body, headers=supervisor["headers"]).status_code == 409
+    assert client.post("/auth/login", json={"email": "New.Person@test.dev", "password": "longenough1"}).status_code == 200

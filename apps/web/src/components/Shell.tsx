@@ -43,7 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
           <Logo />
           <nav className="flex flex-wrap gap-1 text-sm">
-            {NAV.map((n) => {
+            {[...NAV, ...(user.role === "supervisor" ? [{ href: "/users", label: "Users" }] : [])].map((n) => {
               const active = n.href === "/" ? path === "/" || path.startsWith("/cases") || path.startsWith("/evidence") : path.startsWith(n.href);
               return (
                 <Link key={n.href} href={n.href} className={cx("rounded-md px-2.5 py-1.5", active ? "bg-surface-2 font-medium" : "text-muted hover:text-ink")}>

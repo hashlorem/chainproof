@@ -1,9 +1,10 @@
 from collections.abc import Iterator
+from contextlib import contextmanager
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from app.config import settings
+from app.config import SERVER_DIR, settings
 
 
 class Base(DeclarativeBase):
@@ -64,11 +65,40 @@ _POSTGRES_GUARDS = [
 
 
 def init_db(bind=None) -> None:
-    from app import models  # noqa: F401  (registers tables)
+    """Brings the database up to the latest migration (server/migrations). Runs on every API start."""
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect
 
     bind = bind or engine
-    Base.metadata.create_all(bind)
-    guards = _SQLITE_GUARDS if bind.dialect.name == "sqlite" else _POSTGRES_GUARDS
+    cfg = Config(str(SERVER_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(SERVER_DIR / "migrations"))
     with bind.begin() as conn:
-        for stmt in guards:
-            conn.execute(text(stmt))
+        cfg.attributes["connection"] = conn
+        tables = set(inspect(conn).get_table_names())
+        if "custody_entries" in tables and "alembic_version" not in tables:
+            # Made before migrations existed (by create_all): it already matches the first migration.
+            command.stamp(cfg, "0001")
+        command.upgrade(cfg, "head")
+
+
+@contextmanager
+def custody_guards_disabled(conn):
+    """
+    Turns off the append-only triggers on custody_entries for the length of the block, then restores them.
+    Only for tamper demos and tests: it plays an insider with direct database access.
+    """
+    if conn.dialect.name == "sqlite":
+        conn.execute(text("DROP TRIGGER custody_no_update"))
+        conn.execute(text("DROP TRIGGER custody_no_delete"))
+        try:
+            yield
+        finally:
+            for stmt in _SQLITE_GUARDS:
+                conn.execute(text(stmt))
+    else:
+        conn.execute(text("ALTER TABLE custody_entries DISABLE TRIGGER custody_append_only"))
+        try:
+            yield
+        finally:
+            conn.execute(text("ALTER TABLE custody_entries ENABLE TRIGGER custody_append_only"))

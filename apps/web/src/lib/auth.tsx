@@ -14,13 +14,11 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Only "loading" if there is a saved token to check. On the server there is none, which renders the same spinner.
+  const [loading, setLoading] = useState(() => !!tokenStore.get());
 
   useEffect(() => {
-    if (!tokenStore.get()) {
-      setLoading(false);
-      return;
-    }
+    if (!tokenStore.get()) return;
     api.get<User>("/auth/me").then(setUser).catch(() => tokenStore.clear()).finally(() => setLoading(false));
   }, []);
 

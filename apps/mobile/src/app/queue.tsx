@@ -1,5 +1,6 @@
+import { Image as RemoteImage } from "expo-image";
 import { useState } from "react";
-import { Alert, FlatList, Image, StyleSheet, View } from "react-native";
+import { Alert, FlatList, StyleSheet, View } from "react-native";
 import { flushQueue, removeItem } from "@/lib/queue";
 import { useTheme } from "@/lib/theme";
 import { useQueue } from "@/lib/useQueue";
@@ -26,7 +27,13 @@ export default function Queue() {
       ListEmptyComponent={<T muted>Everything is uploaded.</T>}
       renderItem={({ item }) => (
         <Card style={styles.row}>
-          <Image source={{ uri: item.fileUri }} style={styles.thumb} />
+          {item.manifest.mime.startsWith("image/") ? (
+            <RemoteImage source={{ uri: item.fileUri }} style={styles.thumb} contentFit="cover" />
+          ) : (
+            <View style={[styles.thumb, { backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }]}>
+              <T size={11} weight="600" muted>▶ VIDEO</T>
+            </View>
+          )}
           <View style={{ flex: 1, gap: 3 }}>
             <T weight="600">{new Date(item.manifest.captured_at).toLocaleString()}</T>
             <T mono size={12} muted>{short(item.manifest.sha256, 8)}</T>

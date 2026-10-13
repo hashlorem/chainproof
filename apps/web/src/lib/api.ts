@@ -59,6 +59,8 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   const res = await fetch(`${API_URL}${path}`, { ...init, headers });
   if (res.status === 401 && token) {
     tokenStore.clear();
+    // Outside React, so no router here. A full reload to /login also clears any stale page state.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     if (typeof window !== "undefined" && !location.pathname.startsWith("/login")) location.href = "/login";
   }
   if (!res.ok) {

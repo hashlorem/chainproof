@@ -7,7 +7,7 @@ from app.core.security import current_user, require_role
 from app.core.signing import server_public_key_hex
 from app.db import get_db
 from app.models import Case, Evidence, User
-from app.schemas import CaseIn, TransferIn
+from app.schemas import CaseIn, ReasonIn, TransferIn
 from app.serializers import case_out, evidence_out
 
 router = APIRouter(prefix="/cases", tags=["cases"])
@@ -53,6 +53,8 @@ def custody(case_id: str, _: User = Depends(current_user), db: Session = Depends
 @router.post("/{case_id}/transfer")
 def transfer(case_id: str, body: TransferIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
     case = get_case(db, case_id)
+    if case.status != "open":
+        raise HTTPException(409, "Case is closed. Reopen it first")
     if user.role != "supervisor" and case.custodian_id != user.id:
         raise HTTPException(403, "Only the current custodian or a supervisor can transfer custody")
     to = db.get(User, body.to_user_id)
@@ -61,5 +63,31 @@ def transfer(case_id: str, body: TransferIn, user: User = Depends(current_user),
     details = {"from_user_id": case.custodian_id, "to_user_id": to.id, "reason": body.reason}
     case.custodian_id = to.id
     append_entry(db, case.id, "TRANSFERRED", user.id, details=details)
+    db.commit()
+    return case_out(case)
+
+
+@router.post("/{case_id}/close")
+def close_case(case_id: str, body: ReasonIn, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Seals the case: no new evidence or transfers. Viewing, verifying and reports still work."""
+    case = get_case(db, case_id)
+    if case.status != "open":
+        raise HTTPException(409, "Case is already closed")
+    if user.role != "supervisor" and case.custodian_id != user.id:
+        raise HTTPException(403, "Only the current custodian or a supervisor can close a case")
+    count = db.scalar(select(func.count()).select_from(Evidence).where(Evidence.case_id == case_id))
+    case.status = "closed"
+    append_entry(db, case.id, "CASE_CLOSED", user.id, details={"reason": body.reason, "evidence_count": count})
+    db.commit()
+    return case_out(case, count)
+
+
+@router.post("/{case_id}/reopen")
+def reopen_case(case_id: str, body: ReasonIn, user: User = Depends(require_role("supervisor")), db: Session = Depends(get_db)):
+    case = get_case(db, case_id)
+    if case.status == "open":
+        raise HTTPException(409, "Case is already open")
+    case.status = "open"
+    append_entry(db, case.id, "CASE_REOPENED", user.id, details={"reason": body.reason})
     db.commit()
     return case_out(case)

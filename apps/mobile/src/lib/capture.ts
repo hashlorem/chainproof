@@ -24,6 +24,13 @@ async function currentGps(): Promise<EvidenceManifest["gps"]> {
   };
 }
 
+const MIME_BY_EXT: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", mp4: "video/mp4", mov: "video/quicktime" };
+
+export function mimeFromUri(uri: string, fallback: string): string {
+  const ext = uri.split("?")[0].split(".").pop()?.toLowerCase() ?? "";
+  return MIME_BY_EXT[ext] ?? fallback;
+}
+
 /**
  * Turns a fresh camera file into signed evidence:
  * move it out of the temp cache → SHA-256 → GPS → manifest → biometric check → Ed25519 signature → upload queue.
@@ -33,13 +40,22 @@ export async function sealCapture(caseId: string, tempUri: string, capturedAt: D
   if (!device) throw new Error("This phone is not enrolled. Sign in again.");
 
   const evidenceUuid = Crypto.randomUUID();
-  const ext = mime === "image/jpeg" ? "jpg" : mime.split("/")[1];
+  const ext = Object.entries(MIME_BY_EXT).find(([, m]) => m === mime)?.[0] ?? "bin";
   const dir = new Directory(Paths.document, "evidence");
   if (!dir.exists) dir.create();
-  const file = new File(dir, `${evidenceUuid}.${ext}`);
-  new File(tempUri).move(file);
+  // Read the camera's temp file once, write those exact bytes to app storage, then hash the same bytes.
+  const temp = new File(tempUri);
+  const bytes = await temp.bytes();
+  // Expo's fetch uploads a file under its name on disk, so give it the readable name here.
+  const stamp = capturedAt.toISOString().replace(/[-:]/g, "").slice(0, 15);
+  const prefix = mime.startsWith("video/") ? "VID" : "IMG";
+  const file = new File(dir, `${prefix}_${stamp}_${evidenceUuid.slice(0, 8)}.${ext}`);
+  file.create();
+  file.write(bytes);
+  try {
+    temp.delete();
+  } catch {}
 
-  const bytes = await file.bytes();
   const manifest: EvidenceManifest = {
     evidence_uuid: evidenceUuid,
     case_id: caseId,
@@ -58,8 +74,7 @@ export async function sealCapture(caseId: string, tempUri: string, capturedAt: D
     throw new Error("Not signed: identity check was cancelled");
   }
   const signature = await sign(manifest);
-  const stamp = capturedAt.toISOString().replace(/[-:]/g, "").slice(0, 15);
-  await enqueue({ manifest, signature, fileUri: file.uri, filename: `IMG_${stamp}.${ext}`, attempts: 0 });
+  await enqueue({ manifest, signature, fileUri: file.uri, filename: file.name, attempts: 0 });
   flushQueue().catch(() => {});
   return manifest;
 }

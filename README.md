@@ -8,7 +8,7 @@ Tamper-evident digital evidence for investigators: a **phone app** that signs ev
 
 | Question | How ChainProof answers it |
 |---|---|
-| Was this file changed after capture? | SHA-256 hashed **on the phone** at the shutter press, re-hashed by the server on upload and on every verify |
+| Was this photo or video changed after capture? | SHA-256 hashed **on the phone** at the shutter press, re-hashed by the server on upload and on every verify |
 | Which device took it, when and where? | Signed manifest (hash, GPS, time, device, user) using an **Ed25519 key that never leaves the phone** |
 | Could the time be faked? | Independent **RFC 3161 trusted timestamp** from FreeTSA on every upload |
 | Who touched it since? | **Hash-chained custody log**: each entry hashes the previous one and is signed by the server. The database refuses UPDATE/DELETE |
@@ -50,6 +50,14 @@ pnpm mobile                                         # scan the QR code with Expo
 
 On the phone's login screen, set **Server** to your computer's LAN address, for example `http://192.168.1.20:8000`, not `localhost`. The phone and the computer must be on the same Wi-Fi.
 
+**Android emulator instead of a phone:**
+1. Start the emulator with a virtual camera, so it doesn't use your webcam:
+   `emulator -avd <name> -camera-back virtualscene`
+2. Run `pnpm mobile` and press `a`.
+3. Use `http://10.0.2.2:8000` as the server. That's how the emulator reaches your computer.
+
+Photos from the emulator's camera often come out black. That's an emulator limitation; real phones are fine.
+
 Demo accounts: `investigator@`, `supervisor@` and `auditor@chainproof.dev`. The password is `chainproof123`.
 
 ### Postgres instead of SQLite
@@ -64,13 +72,26 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 26 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF
+cd server && uv run pytest                # 35 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
+
+# Same server suite against Postgres (the database is wiped first, so use a throwaway one):
+CHAINPROOF_TEST_DATABASE_URL=postgresql+psycopg://user@localhost:5432/chainproof_test uv run pytest
+```
+
+## Changing the database
+
+The API applies migrations from `server/migrations` every time it starts. After you edit `server/app/models.py`:
+
+```bash
+cd server
+uv run alembic revision --autogenerate -m "describe the change"   # review the generated file
+uv run pytest tests/test_migrations.py                              # fails if models and migrations disagree
 ```
 
 ## Presentation demo (about 5 minutes)
 
-1. **Capture.** On the phone, open a case and take 2–3 photos. Point out "Signed and queued" and the hash.
+1. **Capture.** On the phone, open a case and take 2–3 photos and a short video. Point out "Signed and queued" and the hash.
 2. **Offline.** Turn on airplane mode and take a photo. It waits in the queue. Turn airplane mode off and it uploads, with the signature still valid.
 3. **Web.** Open the case. Show the map, the custody timeline and the "Timestamped" badges. Click **Verify integrity**: all green, and checked a second time *in the browser*.
 4. **Attack.** As the "insider with database access":
@@ -81,10 +102,18 @@ pnpm shared:test                          # 8 tests: same vectors from the TypeS
 5. **Forensics.** Import an edited photo, for example one with a cloned area, then click **Run analysis**. It shows "Likely manipulated" with the clone highlighted.
 6. **Report.** Click **Export PDF** and scan its QR code with a phone. The public page confirms the record. Edit one byte of the PDF and it is no longer recognised.
 
+## Security notes
+
+- **Logins:** 5 failed attempts lock an account for 15 minutes. An IP gets 20 attempts, because a class can share one IP.
+- **JWT secret:** if `CHAINPROOF_JWT_SECRET` isn't set, a random secret is generated once and kept next to the server's signing key. Nothing secret is hardcoded.
+- **Timestamps:** tokens must be signed by FreeTSA's pinned certificate (`tsa_cert_sha256` in `config.py`).
+- **Uploaded files:** they're untrusted. Only images and PDFs display inline. Everything else downloads, under a sandbox CSP.
+
 ## Honest limitations
 
 - A device signature proves **which enrolled device** signed the file, not that the scene is real. The device clock can be wrong, which is why the TSA timestamp at upload matters.
 - Forensic checks give **indicators, not proof**.
+- Audio-only recordings aren't supported yet. Video records sound when the microphone is allowed.
 - Signing keys are software keys in the Keychain/Keystore. Hardware-backed keys (Secure Enclave / StrongBox) need a development build and are future work.
-- The TSA token is checked against the certificate inside it. Pinning FreeTSA's CA certificate would make this stricter.
+- The login limiter lives in memory, so it resets on restart and covers one API process.
 - Files are stored on local disk (content-addressed, read-only). MinIO/S3 with object lock is the production path. `docker-compose.yml` already includes MinIO.

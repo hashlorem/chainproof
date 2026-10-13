@@ -27,7 +27,7 @@ export default function CasePage() {
   const [localCheck, setLocalCheck] = useState<ChainCheck | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showTransfer, setShowTransfer] = useState(false);
+  const [panel, setPanel] = useState<"transfer" | "close" | "reopen" | null>(null);
 
   const users = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
   const c = caseQ.data;
@@ -38,6 +38,15 @@ export default function CasePage() {
   );
   const checksById = useMemo(() => new Map((verification?.evidence ?? []).map((v) => [v.evidence_id, v])), [verification]);
   const canWrite = user?.role !== "auditor";
+  const isOpen = c?.status === "open";
+  const canClose = isOpen && (user?.role === "supervisor" || c?.custodian_id === user?.id);
+  const canReopen = !isOpen && user?.role === "supervisor";
+  const toggle = (p: NonNullable<typeof panel>) => setPanel((cur) => (cur === p ? null : p));
+  const afterChange = () => {
+    setPanel(null);
+    caseQ.reload();
+    custodyQ.reload();
+  };
 
   async function run(label: string, fn: () => Promise<void>) {
     setBusy(label);
@@ -89,7 +98,9 @@ export default function CasePage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href="/" className="text-sm text-muted hover:text-ink">← Cases</Link>
-          <h1 className="text-2xl font-semibold tracking-tight">{c.title}</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
+            {c.title} {!isOpen && <Pill>Closed</Pill>}
+          </h1>
           <p className="text-sm text-muted">
             <span className="font-mono">#{c.id.slice(0, 8).toUpperCase()}</span> · opened {formatTs(c.created_at)} · custodian{" "}
             <b className="font-medium text-ink">{users.get(c.custodian_id)?.name ?? "…"}</b>
@@ -99,12 +110,27 @@ export default function CasePage() {
         <div className="flex flex-wrap gap-2">
           <Button onClick={verify} busy={busy === "verify"}>Verify integrity</Button>
           <Button variant="secondary" onClick={exportPdf} busy={busy === "pdf"}>Export PDF</Button>
-          {canWrite && <Button variant="secondary" onClick={() => setShowTransfer((s) => !s)}>Transfer custody</Button>}
+          {canWrite && isOpen && <Button variant="secondary" onClick={() => toggle("transfer")}>Transfer custody</Button>}
+          {canClose && <Button variant="secondary" onClick={() => toggle("close")}>Close case</Button>}
+          {canReopen && <Button variant="secondary" onClick={() => toggle("reopen")}>Reopen case</Button>}
         </div>
       </div>
 
       {error && <ErrorBox>{error}</ErrorBox>}
-      {showTransfer && <Transfer caseId={id} users={usersQ.data ?? []} currentId={c.custodian_id} onDone={() => { setShowTransfer(false); caseQ.reload(); custodyQ.reload(); }} />}
+      {panel === "transfer" && <Transfer caseId={id} users={usersQ.data ?? []} currentId={c.custodian_id} onDone={afterChange} />}
+      {panel === "close" && (
+        <ReasonForm
+          title="Close case"
+          hint="Closing seals the case: no new evidence or custody transfers. Viewing, verifying and reports still work. Only a supervisor can reopen it."
+          placeholder="Reason, e.g. investigation complete"
+          action="Close case"
+          path={`/cases/${id}/close`}
+          onDone={afterChange}
+        />
+      )}
+      {panel === "reopen" && (
+        <ReasonForm title="Reopen case" placeholder="Reason, e.g. new lead" action="Reopen" path={`/cases/${id}/reopen`} onDone={afterChange} />
+      )}
       {verification && <VerificationBanner v={verification} local={localCheck} />}
 
       <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
@@ -116,7 +142,7 @@ export default function CasePage() {
                 <EvidenceCard key={e.id} e={e} index={i + 1} check={checksById.get(e.id)} />
               ))}
             </div>
-            {canWrite && c.status === "open" && (
+            {canWrite && isOpen && (
               <div className="mt-4">
                 <Dropzone onFile={importFile} disabled={busy === "upload"}>
                   <div>
@@ -150,7 +176,7 @@ function EvidenceCard({ e, index, check }: { e: Evidence; index: number; check?:
       {e.mime.startsWith("image/") ? (
         <AuthedImage path={`/evidence/${e.id}/thumbnail.jpg`} alt={e.filename} className="aspect-[4/3] w-full object-cover" />
       ) : (
-        <div className="grid aspect-[4/3] place-items-center bg-surface-2 font-mono text-xs text-muted">{e.mime}</div>
+        <div className="grid aspect-[4/3] place-items-center bg-surface-2 font-mono text-xs text-muted">{e.mime.startsWith("video/") ? "▶ video" : e.mime}</div>
       )}
       <div className="space-y-1.5 p-2.5">
         <div className="flex items-center justify-between gap-2">
@@ -225,6 +251,37 @@ function Transfer({ caseId, users, currentId, onDone }: { caseId: string; users:
         </select>
         <input className={`${inputClass} min-w-48 flex-1`} placeholder="Reason, e.g. sent to lab" value={reason} onChange={(e) => setReason(e.target.value)} required />
         <Button type="submit" busy={busy} disabled={!to}>Transfer</Button>
+      </form>
+      {error && <div className="mt-2"><ErrorBox>{error}</ErrorBox></div>}
+    </Card>
+  );
+}
+
+function ReasonForm({ title, hint, placeholder, action, path, onDone }: {
+  title: string; hint?: string; placeholder: string; action: string; path: string; onDone: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <Card title={title}>
+      {hint && <p className="mb-3 text-sm text-muted">{hint}</p>}
+      <form
+        className="flex flex-wrap gap-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          try {
+            await api.post(path, { reason });
+            onDone();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : String(err));
+            setBusy(false);
+          }
+        }}
+      >
+        <input className={`${inputClass} min-w-48 flex-1`} placeholder={placeholder} value={reason} onChange={(e) => setReason(e.target.value)} required autoFocus />
+        <Button type="submit" busy={busy}>{action}</Button>
       </form>
       {error && <div className="mt-2"><ErrorBox>{error}</ErrorBox></div>}
     </Card>

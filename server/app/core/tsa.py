@@ -1,10 +1,12 @@
 """RFC 3161 trusted timestamps: a third party (FreeTSA) signs "this hash existed at time T"."""
 
 import base64
+import hashlib
 import logging
 
 import rfc3161ng
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ
@@ -25,7 +27,7 @@ def request_timestamp(sha256_hex: str) -> tuple[str, str]:
 
 def check_timestamp(token_b64: str, sha256_hex: str) -> bool:
     """
-    Checks the token is for this exact hash and carries a valid TSA signature (cert embedded in the token).
+    Checks the token is for this exact hash, is signed by the pinned TSA certificate, and the signature is valid.
     rfc3161ng.check_timestamp only handles RSA keys, and FreeTSA signs with ECDSA, so the signature step is done here.
     """
     try:
@@ -56,7 +58,11 @@ def check_timestamp(token_b64: str, sha256_hex: str) -> bool:
         else:
             signed_bytes = content
 
-        key = load_certificate(signed, b"").public_key()
+        cert = load_certificate(signed, b"")
+        if settings.tsa_cert_sha256 and hashlib.sha256(cert.public_bytes(Encoding.DER)).hexdigest() != settings.tsa_cert_sha256:
+            log.info("TSA token signed by an unexpected certificate")
+            return False
+        key = cert.public_key()
         signature = bytes(signer["encryptedDigest"])
         if isinstance(key, rsa.RSAPublicKey):
             key.verify(signature, signed_bytes, padding.PKCS1v15(), hash_cls())

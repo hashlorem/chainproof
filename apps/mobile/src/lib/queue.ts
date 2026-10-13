@@ -42,8 +42,9 @@ export async function enqueue(item: QueueItem) {
 
 async function uploadOne(item: QueueItem) {
   const fd = new FormData();
-  // React Native's FormData streams the file straight from disk.
-  fd.append("file", { uri: item.fileUri, name: item.filename, type: item.manifest.mime } as unknown as Blob);
+  // Expo's fetch needs a real Blob. expo-file-system's File is one, streamed from disk.
+  // (React Native's old { uri, name, type } object fails with "Unsupported FormDataPart implementation".)
+  fd.append("file", new File(item.fileUri) as unknown as Blob, item.filename);
   fd.append("manifest", JSON.stringify(item.manifest));
   fd.append("signature", item.signature);
   await api.post(`/cases/${item.manifest.case_id}/evidence`, fd);

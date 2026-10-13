@@ -21,18 +21,17 @@ const CHECK_LABEL: Record<string, string> = {
 };
 
 export function PublicResult({ sha256 }: { sha256: string }) {
-  const [result, setResult] = useState<Result | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [state, setState] = useState<{ sha: string; result?: Result; error?: string } | null>(null);
 
   useEffect(() => {
-    setResult(null);
     fetch(`${API_URL}/public/verify/${sha256}`)
-      .then(async (r) => (r.ok ? setResult(await r.json()) : setError((await r.json()).detail ?? r.statusText)))
-      .catch((e) => setError(String(e)));
+      .then(async (r) => setState(r.ok ? { sha: sha256, result: await r.json() } : { sha: sha256, error: (await r.json()).detail ?? r.statusText }))
+      .catch((e) => setState({ sha: sha256, error: String(e) }));
   }, [sha256]);
 
-  if (error) return <ErrorBox>{error}</ErrorBox>;
-  if (!result) return <Loading label="Looking up the record…" />;
+  if (state?.sha !== sha256) return <Loading label="Looking up the record…" />;
+  if (state.error || !state.result) return <ErrorBox>{state.error ?? "Lookup failed"}</ErrorBox>;
+  const result = state.result;
 
   return (
     <div className="space-y-4">

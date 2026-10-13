@@ -28,6 +28,15 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["X-Content-SHA256"],
 )
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    return response
+
+
 for r in (auth, devices, cases, evidence, forensics, reports, verify):
     app.include_router(r.router)
 

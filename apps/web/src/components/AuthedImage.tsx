@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { cx } from "./ui";
 
-/** <img> can't send the auth header, so fetch the bytes and show them from an object URL. */
-export function AuthedImage({ path, alt, className }: { path: string; alt: string; className?: string }) {
+/** <img>/<video> can't send the auth header, so fetch the bytes and show them from an object URL. */
+export function AuthedImage({ path, alt, className, video }: { path: string; alt: string; className?: string; video?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -28,6 +28,7 @@ export function AuthedImage({ path, alt, className }: { path: string; alt: strin
 
   if (failed) return <div className={cx("grid place-items-center bg-surface-2 text-xs text-muted", className)}>No preview</div>;
   if (!url) return <div className={cx("animate-pulse bg-surface-2", className)} />;
+  if (video) return <video src={url} controls playsInline className={className} aria-label={alt} />;
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={url} alt={alt} className={className} />;
 }

@@ -3,28 +3,37 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "./api";
 
+type State<T> = { key: string; data: T | null; error: string | null };
+
 /** Small fetch hook: data, error, loading and a reload() for after mutations. */
 export function useApi<T>(path: string | null) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(!!path);
+  const [state, setState] = useState<State<T>>({ key: "", data: null, error: null });
+  const key = String(path);
 
+  useEffect(() => {
+    if (!path) return;
+    let cancelled = false;
+    api.get<T>(path).then(
+      (data) => !cancelled && setState({ key, data, error: null }),
+      (e) => !cancelled && setState((s) => ({ key, data: s.data, error: e instanceof Error ? e.message : String(e) })),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [path, key]);
+
+  // Keeps showing the current data while it refreshes, then swaps it in.
   const reload = useCallback(async () => {
     if (!path) return;
-    setLoading(true);
     try {
-      setData(await api.get<T>(path));
-      setError(null);
+      const data = await api.get<T>(path);
+      setState({ key: String(path), data, error: null });
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
+      setState((s) => ({ ...s, error: e instanceof Error ? e.message : String(e) }));
     }
   }, [path]);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const setData = useCallback((data: T) => setState((s) => ({ ...s, data })), []);
 
-  return { data, error, loading, reload, setData };
+  return { data: state.data, error: state.error, loading: !!path && state.key !== key, reload, setData };
 }

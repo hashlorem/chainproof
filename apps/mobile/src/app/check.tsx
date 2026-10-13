@@ -1,3 +1,4 @@
+import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import { Image, ScrollView, View } from "react-native";
@@ -30,7 +31,7 @@ export default function Check() {
     setBusy(true);
     try {
       const fd = new FormData();
-      fd.append("file", { uri: asset.uri, name: asset.fileName ?? "photo.jpg", type: asset.mimeType ?? "image/jpeg" } as unknown as Blob);
+      fd.append("file", new File(asset.uri) as unknown as Blob, asset.fileName ?? "photo.jpg");
       setReport(await api.post<ForensicReport>("/forensics/analyze", fd));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

@@ -60,8 +60,9 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   let res: Response;
   try {
     res = await fetch(`${serverUrl}${path}`, { ...init, headers });
-  } catch {
-    throw new ApiError(0, `Can't reach ${serverUrl}`);
+  } catch (e) {
+    console.info(`[chainproof] ${init.method ?? "GET"} ${path} failed:`, e);
+    throw new ApiError(0, `Can't reach ${serverUrl} (${e instanceof Error ? e.message : String(e)})`);
   }
   if (!res.ok) {
     let msg = res.statusText;

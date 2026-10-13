@@ -4,7 +4,8 @@ from pathlib import Path
 
 # Must be set before the app is imported: settings are read once.
 _tmp = Path(tempfile.mkdtemp(prefix="chainproof-test-"))
-os.environ["CHAINPROOF_DATABASE_URL"] = f"sqlite:///{_tmp / 'test.db'}"
+# Set CHAINPROOF_TEST_DATABASE_URL to run the suite against Postgres. The database is wiped first.
+os.environ["CHAINPROOF_DATABASE_URL"] = os.environ.get("CHAINPROOF_TEST_DATABASE_URL", f"sqlite:///{_tmp / 'test.db'}")
 os.environ["CHAINPROOF_STORAGE_DIR"] = str(_tmp / "storage")
 os.environ["CHAINPROOF_TSA_ENABLED"] = "false"
 
@@ -28,6 +29,13 @@ PASSWORD = "correct-horse-battery"
 
 @pytest.fixture(scope="session")
 def client():
+    from sqlalchemy import text
+
+    from app.db import engine
+
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
     with TestClient(app) as c:
         with SessionLocal() as db:
             for role in ("investigator", "supervisor", "auditor"):

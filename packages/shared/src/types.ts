@@ -14,6 +14,8 @@ export interface EvidenceManifest {
 
 export const CUSTODY_ACTIONS = [
   "CASE_OPENED",
+  "CASE_CLOSED",
+  "CASE_REOPENED",
   "CAPTURED",
   "UPLOADED",
   "VIEWED",

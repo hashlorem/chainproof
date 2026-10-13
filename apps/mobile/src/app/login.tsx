@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getServerUrl } from "@/lib/api";
@@ -16,11 +16,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    const s = getServerUrl();
-    if (s) setServer(s);
-  }, []);
 
   const input = [styles.input, { backgroundColor: t.surface, borderColor: t.border, color: t.ink }];
 

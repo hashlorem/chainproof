@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.security import create_token, current_user, hash_password, require_role, verify_password
+from app.core.security import create_token, current_user, hash_password, login_limiter, require_role, verify_password
 from app.db import get_db
 from app.models import User
 from app.schemas import LoginIn, UserCreate
@@ -12,10 +12,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/login")
-def login(body: LoginIn, db: Session = Depends(get_db)):
-    user = db.scalar(select(User).where(User.email == body.email.lower()))
+def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+    keys = (f"email:{email}", f"ip:{request.client.host if request.client else '?'}")
+    if wait := login_limiter.retry_after(*keys):
+        raise HTTPException(429, f"Too many failed attempts. Try again in {wait // 60 + 1} min.", headers={"Retry-After": str(wait)})
+    user = db.scalar(select(User).where(User.email == email))
     if user is None or not verify_password(user.password_hash, body.password):
+        login_limiter.failed(*keys)
         raise HTTPException(401, "Wrong email or password")
+    login_limiter.succeeded(keys[0])
     return {"token": create_token(user), "user": user_out(user)}
 
 

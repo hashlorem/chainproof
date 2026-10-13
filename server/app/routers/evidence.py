@@ -3,6 +3,7 @@ import io
 import json
 import logging
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Response, UploadFile
 from PIL import Image, ImageOps
@@ -154,12 +155,25 @@ def evidence_file(
     action = "DOWNLOADED" if purpose == "download" else "VIEWED"
     append_entry(db, ev.case_id, action, user.id, ev.id)
     db.commit()
-    disposition = "attachment" if action == "DOWNLOADED" else "inline"
+    # Uploaded files are untrusted: only media and PDFs may display inline (never HTML or SVG, which can run
+    # script), and the sandbox CSP blocks script even if someone opens the file directly.
+    inline_ok = ev.mime.startswith(("image/", "video/", "audio/")) and ev.mime != "image/svg+xml" or ev.mime == "application/pdf"
+    disposition = "inline" if action == "VIEWED" and inline_ok else "attachment"
     return Response(
         storage.load(ev.storage_key),
-        media_type=ev.mime,
-        headers={"Content-Disposition": f'{disposition}; filename="{ev.filename}"', "X-Content-SHA256": ev.sha256},
+        media_type=ev.mime if inline_ok else "application/octet-stream",
+        headers={
+            "Content-Disposition": f"{disposition}; filename=\"{safe_filename(ev.filename)}\"; filename*=UTF-8''{quote(ev.filename)}",
+            "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+            "X-Content-SHA256": ev.sha256,
+        },
     )
+
+
+def safe_filename(name: str) -> str:
+    """ASCII fallback for Content-Disposition: no quotes, slashes or control characters."""
+    cleaned = "".join(c if c.isascii() and c.isprintable() and c not in '"\\/;' else "_" for c in name)
+    return cleaned.strip(" .") or "evidence"
 
 
 @router.get("/evidence/{evidence_id}/thumbnail.jpg")

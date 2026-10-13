@@ -30,6 +30,10 @@ class TransferIn(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
+class ReasonIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class GpsIn(BaseModel):
     lat: float
     lon: float
