@@ -25,8 +25,8 @@ export function MapView({ points, className = "h-72" }: { points: MapPoint[]; cl
       for (const p of points) {
         const ll = L.latLng(p.lat, p.lon);
         bounds.extend(ll);
-        L.circleMarker(ll, { radius: 7, color: "#0f766e", fillOpacity: 0.8 }).bindPopup(p.label).addTo(m);
-        if (p.accuracy) L.circle(ll, { radius: p.accuracy, color: "#0f766e", weight: 1, fillOpacity: 0.1 }).addTo(m);
+        L.circleMarker(ll, { radius: 7, color: "#c8281e", fillOpacity: 0.8 }).bindPopup(p.label).addTo(m);
+        if (p.accuracy) L.circle(ll, { radius: p.accuracy, color: "#c8281e", weight: 1, fillOpacity: 0.1 }).addTo(m);
       }
       m.fitBounds(bounds.pad(0.3), { maxZoom: 17 });
     });
@@ -37,6 +37,6 @@ export function MapView({ points, className = "h-72" }: { points: MapPoint[]; cl
     };
   }, [points]);
 
-  if (points.length === 0) return <div className={`${className} grid place-items-center rounded-lg bg-surface-2 text-sm text-muted`}>No GPS data yet</div>;
-  return <div ref={el} className={`${className} overflow-hidden rounded-lg`} />;
+  if (points.length === 0) return <div className={`${className} grid place-items-center bg-surface-2 text-sm text-muted`}>No GPS data yet</div>;
+  return <div ref={el} className={`${className} overflow-hidden `} />;
 }

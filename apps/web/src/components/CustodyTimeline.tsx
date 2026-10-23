@@ -2,6 +2,7 @@
 
 import type { CustodyEntry } from "@chainproof/shared";
 import Link from "next/link";
+import { useState } from "react";
 import { formatTs, type User } from "@/lib/api";
 import { Hash, cx } from "./ui";
 
@@ -36,44 +37,50 @@ function describe(e: CustodyEntry, users: Map<string, User>): string | null {
   }
 }
 
+const RECENT = 8;
+
 export function CustodyTimeline({ entries, users, brokenAt, evidenceNames }: {
   entries: CustodyEntry[];
   users: Map<string, User>;
   brokenAt?: number | null;
   evidenceNames: Map<string, string>;
 }) {
+  const [showAll, setShowAll] = useState(false);
+  // Long logs show the latest entries; a broken chain always shows everything so the break is visible.
+  const hidden = showAll || brokenAt != null ? 0 : Math.max(0, entries.length - RECENT);
   return (
-    <ol className="relative space-y-0">
-      {entries.map((e) => {
+    <ol className="-m-4">
+      {hidden > 0 && (
+        <li className="border-b border-border px-4 py-2">
+          <button type="button" onClick={() => setShowAll(true)} className="min-h-9 text-xs uppercase tracking-[0.08em] underline underline-offset-4">
+            Show {hidden} earlier entries
+          </button>
+        </li>
+      )}
+      {entries.slice(hidden).map((e) => {
         const broken = brokenAt != null && e.seq >= brokenAt;
         const first = brokenAt != null && e.seq === brokenAt;
         const note = describe(e, users);
         return (
-          <li key={e.seq} className="relative flex gap-3 pb-4 last:pb-0">
-            <div className="flex flex-col items-center">
-              <span className={cx("grid size-7 shrink-0 place-items-center rounded-full border text-xs font-mono", first ? "border-bad bg-bad text-white" : broken ? "border-bad/50 text-bad" : "border-border bg-surface-2 text-muted")}>
-                {e.seq}
-              </span>
-              <span className={cx("mt-1 w-px flex-1", broken ? "bg-bad/40" : "bg-border")} />
-            </div>
-            <div className={cx("min-w-0 flex-1 rounded-lg px-3 py-2", first && "bg-bad-bg")}>
-              <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                <span className="font-medium">{ACTION_LABEL[e.action] ?? e.action}</span>
+          <li key={e.seq} className={cx("grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-border px-4 py-3 last:border-b-0", first ? "bg-bad-bg" : broken && "text-bad")}>
+            <span className={cx("font-semibold", first && "text-bad")}>#{e.seq}</span>
+            <div className="min-w-0 text-xs">
+              <div className="flex flex-wrap items-baseline gap-x-2">
+                <span className="text-sm font-semibold uppercase tracking-[0.04em]">{ACTION_LABEL[e.action] ?? e.action}</span>
                 {e.evidence_id && (
-                  <Link href={`/evidence/${e.evidence_id}`} className="text-accent hover:underline">
+                  <Link href={`/evidence/${e.evidence_id}`} className="underline underline-offset-4 hover:text-bad">
                     {evidenceNames.get(e.evidence_id) ?? "evidence"}
                   </Link>
                 )}
-                <span className="text-xs text-muted">
-                  {e.actor_id === "system" ? "system" : users.get(e.actor_id)?.name ?? "unknown user"} · {formatTs(e.ts)}
-                </span>
               </div>
-              {note && <p className="text-sm text-muted">{note}</p>}
-              <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px]">
-                <span className="text-muted">hash</span> <Hash value={e.entry_hash} short={10} />
-                <span className="text-muted">prev</span> <Hash value={e.prev_hash} short={6} />
+              {note && <p>{note}</p>}
+              <div className="text-muted">
+                {e.actor_id === "system" ? "system" : users.get(e.actor_id)?.name ?? "unknown user"} · {formatTs(e.ts)}
               </div>
-              {first && <p className="mt-1 text-sm font-medium text-bad">Chain broken here. This entry or the one before it was altered.</p>}
+              <div className="flex flex-wrap gap-x-1.5 text-[11px] text-muted">
+                <Hash value={e.entry_hash} short={6} /> <span aria-label="follows">←</span> <Hash value={e.prev_hash} short={4} />
+              </div>
+              {first && <p className="mt-1 font-semibold text-bad">Chain broken here. This entry or the one before it was altered.</p>}
             </div>
           </li>
         );

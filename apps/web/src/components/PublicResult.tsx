@@ -37,19 +37,19 @@ export function PublicResult({ sha256 }: { sha256: string }) {
     <div className="space-y-4">
       <p className="text-sm text-muted">SHA-256 <Hash value={sha256} short={0} /></p>
       {!result.found ? (
-        <div className="rounded-xl border border-bad/30 bg-bad-bg p-4">
-          <div className="text-lg font-semibold text-bad">No matching record</div>
+        <div className="border-2 border-bad bg-bad-bg p-4">
+          <div className="heading text-2xl text-bad">No matching record</div>
           <p className="text-sm">This exact file is not registered with ChainProof. If it should be, it has been changed, even by one byte.</p>
         </div>
       ) : result.kind === "report" ? (
-        <div className="rounded-xl border border-ok/30 bg-ok-bg p-4">
-          <div className="text-lg font-semibold text-ok">Authentic ChainProof report</div>
+        <div className="border-2 border-ok bg-surface p-4">
+          <div className="heading text-2xl text-ok">Authentic ChainProof report</div>
           <p className="text-sm">Generated {formatTs(result.report.generated_at)} for case #{result.report.case_reference}. This PDF has not been changed since.</p>
         </div>
       ) : (
         result.matches.map((m) => (
-          <div key={m.evidence_id} className={`rounded-xl border p-4 ${m.intact ? "border-ok/30 bg-ok-bg" : "border-bad/30 bg-bad-bg"}`}>
-            <div className={`text-lg font-semibold ${m.intact ? "text-ok" : "text-bad"}`}>
+          <div key={m.evidence_id} className={`border-2 p-4 ${m.intact ? "border-ok bg-surface" : "border-bad bg-bad-bg"}`}>
+            <div className={`heading text-2xl ${m.intact ? "text-ok" : "text-bad"}`}>
               {m.intact ? "Registered evidence, intact" : "Registered evidence, but its record failed a check"}
             </div>
             <p className="text-sm">

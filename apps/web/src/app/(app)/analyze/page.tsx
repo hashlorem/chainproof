@@ -33,7 +33,7 @@ export default function AnalyzePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Check a photo</h1>
+        <h1 className="heading text-4xl">Check a photo</h1>
         <p className="text-sm text-muted">
           Look for signs of editing in any image: a tip from the public, a screenshot from social media, a photo from a suspect&apos;s phone.
           Nothing is saved and nothing is added to a case.

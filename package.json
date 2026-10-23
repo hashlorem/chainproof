@@ -5,6 +5,8 @@
     "web": "pnpm --filter web dev",
     "mobile": "pnpm --filter mobile start",
     "shared:test": "pnpm --filter @chainproof/shared test",
-    "api": "cd server && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    "api": "cd server && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+    "mobile:build": "cd apps/mobile && pnpm dlx eas-cli@latest build --platform android --profile preview",
+    "mobile:update": "cd apps/mobile && pnpm dlx eas-cli@latest update --channel preview --environment preview --message"
   }
 }

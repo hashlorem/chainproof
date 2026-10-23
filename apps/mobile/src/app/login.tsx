@@ -4,8 +4,8 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getServerUrl } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { useTheme } from "@/lib/theme";
-import { Button, ErrorText, T } from "@/ui";
+import { FONT, useTheme } from "@/lib/theme";
+import { Button, ErrorText, H, Label, T } from "@/ui";
 
 export default function Login() {
   const t = useTheme();
@@ -18,7 +18,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const input = [styles.input, { backgroundColor: t.surface, borderColor: t.border, color: t.ink }];
+  const input = [styles.input, { backgroundColor: t.surface, borderColor: t.rule, color: t.ink }];
 
   async function submit() {
     setBusy(true);
@@ -38,15 +38,15 @@ export default function Login() {
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.wrap} keyboardShouldPersistTaps="handled">
           <View style={{ gap: 6 }}>
-            <T size={30} weight="700">ChainProof</T>
+            <H size={44}>ChainProof</H>
             <T muted>Capture evidence that can prove where, when and by which device it was taken, and that nobody changed it since.</T>
           </View>
           <View style={{ gap: 10 }}>
-            <T size={13} muted>Server</T>
+            <Label>Server</Label>
             <TextInput style={input} value={server} onChangeText={setServer} autoCapitalize="none" autoCorrect={false} keyboardType="url" />
-            <T size={13} muted>Email</T>
+            <Label>Email</Label>
             <TextInput style={input} value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email" />
-            <T size={13} muted>Password</T>
+            <Label>Password</Label>
             <TextInput style={input} value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" onSubmitEditing={submit} />
             {error && <ErrorText>{error}</ErrorText>}
             <Button title="Sign in" onPress={submit} busy={busy} disabled={!password} style={{ marginTop: 6 }} />
@@ -62,5 +62,5 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   wrap: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 28 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
+  input: { borderWidth: 2, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: FONT.mono },
 });

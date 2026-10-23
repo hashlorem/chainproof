@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Image, ScrollView, View } from "react-native";
 import { api, type ForensicReport } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
-import { Button, Card, ErrorText, Pill, T, toneColors } from "@/ui";
+import { Button, Card, ErrorText, H, Pill, T, toneColors } from "@/ui";
 
 const VERDICT_TONE: Record<string, "ok" | "warn" | "bad"> = {
   verified_capture: "ok", no_signs: "ok", suspicious: "warn", likely_manipulated: "bad", ai_generated: "bad",
@@ -52,7 +52,7 @@ export default function Check() {
       <T muted size={14}>Pick any image, for example a tip from the public or a screenshot, and look for signs of editing. Nothing is saved.</T>
       <Button title={uri ? "Check another photo" : "Choose a photo"} onPress={pick} busy={busy} />
       {error && <ErrorText>{error}</ErrorText>}
-      {shown && <Image source={{ uri: shown }} style={{ width: "100%", aspectRatio: 4 / 3, borderRadius: 12 }} resizeMode="contain" />}
+      {shown && <Image source={{ uri: shown }} style={{ width: "100%", aspectRatio: 4 / 3 }} resizeMode="contain" />}
       {report && (
         <>
           <View style={{ flexDirection: "row", gap: 6 }}>
@@ -60,8 +60,8 @@ export default function Check() {
             <Button title="ELA" variant={view === "ela" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("ela")} disabled={!report.checks.ela.heatmap_png} />
             <Button title="Clones" variant={view === "clones" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("clones")} disabled={!report.checks.copy_move.overlay_png} />
           </View>
-          <Card style={{ backgroundColor: bg, borderColor: fg, gap: 4 }}>
-            <T size={19} weight="700" style={{ color: fg }}>{report.label}</T>
+          <Card style={{ backgroundColor: tone === "bad" ? bg : t.surface, borderColor: fg, gap: 4 }}>
+            <H size={26} style={{ color: fg }}>{report.label}</H>
             <T size={13} muted>{report.disclaimer}</T>
           </Card>
           {report.findings.map((f, i) => (

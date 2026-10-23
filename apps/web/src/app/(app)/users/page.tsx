@@ -21,7 +21,7 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Users</h1>
+        <h1 className="heading text-4xl">Users</h1>
         <p className="text-sm text-muted">Every action in a chain of custody is tied to one of these accounts.</p>
       </div>
       <NewUser onCreated={reload} />

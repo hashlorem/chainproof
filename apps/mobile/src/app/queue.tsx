@@ -58,5 +58,5 @@ export default function Queue() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 12 },
-  thumb: { width: 60, height: 60, borderRadius: 8 },
+  thumb: { width: 60, height: 60, borderWidth: 1 },
 });

@@ -5,7 +5,7 @@ import { api, type Case } from "@/lib/api";
 import { flushQueue } from "@/lib/queue";
 import { useTheme } from "@/lib/theme";
 import { useQueue } from "@/lib/useQueue";
-import { Button, Card, ErrorText, Pill, T } from "@/ui";
+import { Button, Card, ErrorText, H, Label, T } from "@/ui";
 
 export default function Cases() {
   const t = useTheme();
@@ -32,21 +32,22 @@ export default function Cases() {
         options={{
           headerRight: () => (
             <Link href="/settings" asChild>
-              <Pressable hitSlop={10}><T size={15} style={{ color: t.accent }}>Device</T></Pressable>
+              <Pressable hitSlop={10}><T size={12} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1 }}>This device</T></Pressable>
             </Link>
           ),
         }}
       />
       <FlatList
-        contentContainerStyle={{ padding: 16, gap: 12 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
         data={cases?.filter((c) => c.status === "open") ?? []}
         keyExtractor={(c) => c.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
         ListHeaderComponent={
-          <View style={{ gap: 12 }}>
+          <View style={{ gap: 12, padding: 16, paddingBottom: 12, borderBottomWidth: 2, borderColor: t.rule }}>
+            <Label color={t.bad}>Open cases · tap one to capture evidence</Label>
             {queue.length > 0 && (
               <Pressable onPress={() => router.push("/queue")}>
-                <Card style={{ backgroundColor: t.warnBg, borderColor: t.warn }}>
+                <Card style={{ borderColor: t.warn }}>
                   <T weight="600" style={{ color: t.warn }}>{queue.length} item{queue.length > 1 ? "s" : ""} waiting to upload</T>
                   <T size={13} muted>Already hashed and signed. Tap to see or retry.</T>
                 </Card>
@@ -54,21 +55,23 @@ export default function Cases() {
             )}
             <Button title="Check a photo for editing" variant="secondary" onPress={() => router.push("/check")} />
             {error && <ErrorText>{error}</ErrorText>}
-            <T size={13} muted>Open cases. Tap a case to capture evidence for it.</T>
           </View>
         }
-        ListEmptyComponent={cases ? <T muted>No open cases. Create one in the web app.</T> : null}
+        ListEmptyComponent={cases ? <T muted style={{ padding: 16 }}>No open cases. Create one in the web app.</T> : null}
         renderItem={({ item }) => (
           <Pressable onPress={() => router.push({ pathname: "/cases/[id]", params: { id: item.id, title: item.title } })}>
             {({ pressed }) => (
-              <Card style={{ opacity: pressed ? 0.7 : 1, gap: 4 }}>
-                <View style={styles.row}>
-                  <T size={17} weight="600" style={{ flex: 1 }}>{item.title}</T>
-                  <Pill>{`${item.evidence_count ?? 0} items`}</Pill>
+              <View style={[styles.row, { borderColor: t.border, backgroundColor: pressed ? t.surface2 : undefined }]}>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Label>Case {item.id.slice(0, 8).toUpperCase()}</Label>
+                  <H size={24}>{item.title}</H>
+                  {!!item.description && <T muted size={12} numberOfLines={2}>{item.description}</T>}
                 </View>
-                {!!item.description && <T muted size={14}>{item.description}</T>}
-                <T mono size={12} muted>#{item.id.slice(0, 8).toUpperCase()}</T>
-              </Card>
+                <View style={{ alignItems: "flex-end" }}>
+                  <T size={22} weight="600">{item.evidence_count ?? 0}</T>
+                  <Label>Items</Label>
+                </View>
+              </View>
             )}
           </Pressable>
         )}
@@ -77,4 +80,4 @@ export default function Cases() {
   );
 }
 
-const styles = StyleSheet.create({ row: { flexDirection: "row", alignItems: "center", gap: 8 } });
+const styles = StyleSheet.create({ row: { flexDirection: "row", alignItems: "center", gap: 16, paddingVertical: 16, paddingHorizontal: 16, borderBottomWidth: 1 } });

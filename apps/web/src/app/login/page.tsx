@@ -37,17 +37,18 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-dvh place-items-center px-4">
       <div className="w-full max-w-sm space-y-6">
-        <div className="space-y-2">
+        <div className="space-y-3 border-b-2 border-rule pb-4">
           <Logo />
           <p className="text-sm text-muted">Tamper-evident evidence: signed on capture, tracked on every touch, checked on demand.</p>
         </div>
-        <form onSubmit={submit} className="space-y-3 rounded-xl border border-border bg-surface p-5">
+        <form onSubmit={submit} className="space-y-4 border-2 border-rule bg-surface p-5">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-bad">Staff sign in</div>
           <label className="block space-y-1 text-sm">
-            <span>Email</span>
+            <span className="eyebrow">Email</span>
             <input className={inputClass} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </label>
           <label className="block space-y-1 text-sm">
-            <span>Password</span>
+            <span className="eyebrow">Password</span>
             <input className={inputClass} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
           {error && <ErrorBox>{error}</ErrorBox>}
@@ -58,7 +59,7 @@ export default function LoginPage() {
             <p>Demo accounts (password <code>chainproof123</code>):</p>
             <div className="flex flex-wrap gap-2">
               {DEMO.map(([e, label]) => (
-                <button key={e} className="rounded-md border border-border px-2 py-1 hover:text-ink" onClick={() => { setEmail(e); setPassword("chainproof123"); }}>
+                <button key={e} className="min-h-9 border border-rule px-2.5 uppercase tracking-[0.06em] hover:bg-surface-2 hover:text-ink" onClick={() => { setEmail(e); setPassword("chainproof123"); }}>
                   {label}
                 </button>
               ))}

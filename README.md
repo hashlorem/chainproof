@@ -73,6 +73,30 @@ This runs the API and web app on this laptop and opens two free Cloudflare tunne
 - **Passwords:** the app is public while the tunnel is open. Change the demo passwords first: click your name to change yours, and supervisors use **Users → Reset password** for the others. The script warns you if any account still uses `chainproof123`.
 - **Video size:** Cloudflare's free tunnel rejects uploads over 100 MB, so phone videos stop at 90 MB.
 
+### Installable Android app and updates
+
+Expo Go is for development. To put ChainProof on someone else's Android phone, build an APK with EAS. It needs a free Expo account; the project is `@hashlorem/chainproof`.
+
+```bash
+cd apps/mobile
+pnpm dlx eas-cli@latest login                                        # once
+pnpm dlx eas-cli@latest build --platform android --profile preview  # or from the repo root: pnpm mobile:build
+```
+
+Open the install link on the Android phone, download the APK and allow "install unknown apps" when asked. The phone needs an `https://` server address, such as the API address from `./demo.sh`. Release builds refuse plain `http://`.
+
+**Sending a change to installed phones:**
+
+```bash
+cd apps/mobile
+pnpm dlx eas-cli@latest update --channel preview --environment preview --message "what changed"
+# or from the repo root: pnpm mobile:update "what changed"
+```
+
+The next time the app opens or comes back to the screen, it shows **Update available**. **Update now** restarts it on the new code. **Settings → App version** shows which update a phone is running.
+
+Updates only carry JavaScript: screens, logic and text. A new native library, a permission change or an Expo SDK upgrade needs a new APK. When that happens, raise `version` in `app.json` (and `android.versionCode`) and run the build again. The runtime version follows `version`, so old APKs never receive an update they can't run.
+
 ### Postgres instead of SQLite
 
 ```bash

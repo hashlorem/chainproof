@@ -1,12 +1,12 @@
 import { Stack, router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { Image as RemoteImage } from "expo-image";
 import { FlatList, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, authHeaders, getServerUrl, type Case, type Evidence } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { useQueue } from "@/lib/useQueue";
-import { Button, Card, ErrorText, Pill, T, short } from "@/ui";
+import { Button, ErrorText, H, Label, Pill, T, short } from "@/ui";
 
 type Row = { kind: "server"; e: Evidence } | { kind: "pending"; uuid: string; uri: string; mime: string; capturedAt: string; error?: string };
 
@@ -26,53 +26,102 @@ export default function CaseScreen() {
   const pending: Row[] = queue
     .filter((q) => q.manifest.case_id === id)
     .map((q) => ({ kind: "pending", uuid: q.manifest.evidence_uuid, uri: q.fileUri, mime: q.manifest.mime, capturedAt: q.manifest.captured_at, error: q.lastError }));
-  const uploaded: Row[] = (data?.evidence ?? []).slice().reverse().map((e) => ({ kind: "server", e }));
+  // Oldest first, like the numbered items on a custody form; queued captures come last.
+  const uploaded: Row[] = (data?.evidence ?? []).map((e) => ({ kind: "server", e }));
+  const rows = [...uploaded, ...pending];
+  const signed = data?.evidence.filter((e) => e.provenance === "device_signed").length ?? 0;
+  const closed = data?.status === "closed";
 
   return (
-    <SafeAreaView edges={["bottom"]} style={{ flex: 1 }}>
-      <Stack.Screen options={{ title: data?.title ?? title ?? "Case" }} />
+    <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: t.bg }}>
+      <Stack.Screen options={{ title: `Case ${id.slice(0, 8).toUpperCase()}` }} />
       <FlatList
-        contentContainerStyle={{ padding: 16, gap: 10 }}
-        data={[...pending, ...uploaded]}
+        data={rows}
         keyExtractor={(r) => (r.kind === "server" ? r.e.id : r.uuid)}
-        ListHeaderComponent={error ? <ErrorText>{error}</ErrorText> : data?.description ? <T muted>{data.description}</T> : null}
-        ListEmptyComponent={<T muted>No evidence yet. Tap Capture to take the first photo.</T>}
-        renderItem={({ item }) =>
-          item.kind === "pending" ? (
-            <Card style={styles.row}>
-              {item.mime.startsWith("image/") ? <RemoteImage source={{ uri: item.uri }} style={styles.thumb} contentFit="cover" /> : <MediaBadge mime={item.mime} />}
-              <View style={{ flex: 1, gap: 4 }}>
-                <T weight="600">Waiting to upload</T>
-                <T size={13} muted>Captured {new Date(item.capturedAt).toLocaleString()}</T>
-                <Pill tone="warn">Signed · queued</Pill>
-                {item.error && <T size={12} style={{ color: t.bad }}>{item.error}</T>}
-              </View>
-            </Card>
-          ) : (
-            <Card style={styles.row}>
-              {item.e.mime.startsWith("image/") ? (
-                // expo-image sends the auth header reliably on Android; RN's <Image> dropped it.
-                <RemoteImage source={{ uri: `${getServerUrl()}/evidence/${item.e.id}/thumbnail.jpg`, headers: authHeaders() }} style={styles.thumb} contentFit="cover" />
-              ) : (
-                <MediaBadge mime={item.e.mime} />
-              )}
-              <View style={{ flex: 1, gap: 4 }}>
-                <T weight="600" numberOfLines={1}>{item.e.filename}</T>
-                <T size={12} mono muted>{short(item.e.sha256, 8)}</T>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
-                  {item.e.provenance === "device_signed" ? <Pill tone="ok">Signed capture</Pill> : <Pill>Imported</Pill>}
-                  {item.e.tsa_status === "stamped" && <Pill tone="info">Timestamped</Pill>}
-                  {item.e.forensics_label && <Pill tone={VERDICT_TONE[item.e.forensics_label] ?? "neutral"}>{item.e.forensics_label}</Pill>}
-                </View>
-              </View>
-            </Card>
-          )
+        ListHeaderComponent={
+          <View style={[styles.head, { borderColor: t.rule }]}>
+            <View style={{ padding: 20, gap: 8 }}>
+              <Label color={t.bad}>Chain of custody record · {closed ? "Closed" : "Open"}</Label>
+              <H size={34}>{data?.title ?? title ?? "Case"}</H>
+              {!!data?.description && <T muted size={12}>{data.description}</T>}
+              {error && <ErrorText>{error}</ErrorText>}
+            </View>
+            <View style={[styles.stats, { borderColor: t.rule }]}>
+              <Stat label="Items" value={uploaded.length + pending.length} />
+              <Stat label="Signed" value={signed} divider />
+              <Stat label="Queue" value={pending.length} divider />
+            </View>
+          </View>
         }
+        ListEmptyComponent={<T muted style={{ padding: 20 }}>No evidence yet. Tap Capture to take the first photo.</T>}
+        renderItem={({ item, index }) => {
+          const n = String(index + 1).padStart(2, "0");
+          if (item.kind === "pending") {
+            return (
+              <ItemRow n={n} thumb={item.mime.startsWith("image/") ? <RemoteImage source={{ uri: item.uri }} style={styles.thumbImg} contentFit="cover" /> : <MediaBadge mime={item.mime} />}>
+                <T weight="600" numberOfLines={1}>Waiting to upload</T>
+                <T size={11} muted>Signed · queued · {new Date(item.capturedAt).toLocaleTimeString()}</T>
+                {item.error && <T size={11} style={{ color: t.bad }}>{item.error}</T>}
+              </ItemRow>
+            );
+          }
+          const e = item.e;
+          const tone = e.forensics_label ? VERDICT_TONE[e.forensics_label] : undefined;
+          const flagged = tone === "bad";
+          return (
+            <ItemRow
+              n={n}
+              flagged={flagged}
+              thumb={
+                e.mime.startsWith("image/") ? (
+                  // expo-image sends the auth header reliably on Android; RN's <Image> dropped it.
+                  <RemoteImage source={{ uri: `${getServerUrl()}/evidence/${e.id}/thumbnail.jpg`, headers: authHeaders() }} style={styles.thumbImg} contentFit="cover" />
+                ) : (
+                  <MediaBadge mime={e.mime} />
+                )
+              }
+              status={flagged ? <Pill tone="bad">Edited?</Pill> : <Pill>{e.provenance === "device_signed" ? "Signed" : "Imported"}</Pill>}
+            >
+              <T weight="600" numberOfLines={1}>{e.filename}</T>
+              <T size={11} muted numberOfLines={1}>
+                {[e.provenance === "device_signed" ? "Signed" : "Imported", e.tsa_status === "stamped" && "TSA", e.forensics_label].filter(Boolean).join(" · ")}
+              </T>
+              <T size={11} muted>{short(e.sha256, 6)}</T>
+            </ItemRow>
+          );
+        }}
       />
-      <View style={[styles.footer, { borderColor: t.border, backgroundColor: t.surface }]}>
-        <Button title="Capture evidence" onPress={() => router.push({ pathname: "/capture", params: { caseId: id } })} disabled={data?.status === "closed"} />
+      <View style={[styles.footer, { borderColor: t.rule, backgroundColor: t.bg }]}>
+        <Button
+          title={closed ? "Case closed" : `Capture item ${String(rows.length + 1).padStart(2, "0")}`}
+          onPress={() => router.push({ pathname: "/capture", params: { caseId: id } })}
+          disabled={closed}
+          style={{ minHeight: 56 }}
+        />
       </View>
     </SafeAreaView>
+  );
+}
+
+function Stat({ label, value, divider }: { label: string; value: number; divider?: boolean }) {
+  const t = useTheme();
+  return (
+    <View style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 20, borderLeftWidth: divider ? 1 : 0, borderColor: t.rule }}>
+      <Label>{label}</Label>
+      <T size={18} weight="600">{value}</T>
+    </View>
+  );
+}
+
+function ItemRow({ n, thumb, status, flagged, children }: { n: string; thumb: ReactNode; status?: ReactNode; flagged?: boolean; children: ReactNode }) {
+  const t = useTheme();
+  return (
+    <View style={[styles.row, { borderColor: t.border, backgroundColor: flagged ? t.badBg : undefined }]}>
+      <T size={15} weight="600" style={{ width: 24 }}>{n}</T>
+      <View style={[styles.thumb, { borderColor: t.rule, backgroundColor: t.surface2 }]}>{thumb}</View>
+      <View style={{ flex: 1, gap: 2 }}>{children}</View>
+      {status}
+    </View>
   );
 }
 
@@ -81,16 +130,18 @@ const VERDICT_TONE: Record<string, "ok" | "warn" | "bad"> = {
 };
 
 function MediaBadge({ mime }: { mime: string }) {
-  const t = useTheme();
   return (
-    <View style={[styles.thumb, { backgroundColor: t.surface2, alignItems: "center", justifyContent: "center" }]}>
-      <T size={12} weight="600" muted>{mime.startsWith("video/") ? "▶ VIDEO" : mime.split("/")[1]?.toUpperCase()}</T>
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <Label>{mime.startsWith("video/") ? "Video" : mime.split("/")[1] ?? "File"}</Label>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: 12, alignItems: "center" },
-  thumb: { width: 72, height: 72, borderRadius: 10 },
-  footer: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth },
+  head: { borderBottomWidth: 2 },
+  stats: { flexDirection: "row", borderTopWidth: 1 },
+  row: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: 1 },
+  thumb: { width: 56, height: 56, borderWidth: 1, overflow: "hidden" },
+  thumbImg: { width: "100%", height: "100%" },
+  footer: { padding: 16, paddingBottom: 20, borderTopWidth: 2 },
 });

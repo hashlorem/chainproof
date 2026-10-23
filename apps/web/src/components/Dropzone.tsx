@@ -21,8 +21,8 @@ export function Dropzone({ onFile, accept, children, disabled }: { onFile: (f: F
         if (f && !disabled) onFile(f);
       }}
       className={cx(
-        "grid cursor-pointer place-items-center rounded-xl border-2 border-dashed p-8 text-center text-sm transition",
-        over ? "border-accent bg-surface-2" : "border-border hover:border-muted",
+        "grid cursor-pointer place-items-center border-2 border-dashed p-8 text-center text-sm transition",
+        over ? "border-rule bg-surface-2" : "border-muted hover:border-rule hover:bg-surface-2",
         disabled && "pointer-events-none opacity-60",
       )}
     >

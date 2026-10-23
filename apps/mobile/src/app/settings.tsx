@@ -1,10 +1,12 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
+import Constants from "expo-constants";
 import { Alert, ScrollView } from "react-native";
 import { getServerUrl } from "@/lib/api";
 import { forgetDevice, getDevice } from "@/lib/device";
 import { useSession } from "@/lib/session";
-import { Button, Card, T } from "@/ui";
+import { updateLabel } from "@/lib/updates";
+import { Button, Card, Label, T } from "@/ui";
 
 export default function Settings() {
   const { user, signOut } = useSession();
@@ -20,17 +22,21 @@ export default function Settings() {
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
       <Card style={{ gap: 4 }}>
-        <T size={13} muted>Signed in as</T>
+        <Label>Signed in as</Label>
         <T weight="600">{user?.name}</T>
         <T muted size={14}>{user?.email} · {user?.role}</T>
         <T muted size={13}>{getServerUrl()}</T>
       </Card>
       <Card style={{ gap: 6 }}>
-        <T size={13} muted>Device signing key (Ed25519 public key)</T>
+        <Label>Device signing key · Ed25519 public key</Label>
         <T mono size={13}>{fingerprint ?? "not enrolled"}</T>
         <T size={13} muted>
           The private half is in this phone&apos;s secure storage and never leaves it. If the phone is lost, a supervisor revokes this key on the web Devices page.
         </T>
+      </Card>
+      <Card style={{ gap: 4 }}>
+        <Label>App version</Label>
+        <T size={14}>{Constants.expoConfig?.version} · {updateLabel()}</T>
       </Card>
       <Button title="Sign out" variant="secondary" onPress={async () => { await signOut(); router.replace("/login"); }} />
       <Button

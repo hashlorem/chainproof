@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mimeFromUri, sealCapture } from "@/lib/capture";
-import { Button, Card, ErrorText, T, short } from "@/ui";
+import { Button, Card, ErrorText, H, T, short } from "@/ui";
 
 type Mode = "picture" | "video";
 type Phase =
@@ -116,7 +116,7 @@ export default function Capture() {
         )}
         {phase.kind === "done" && (
           <Card style={styles.panel}>
-            <T weight="700" size={17}>Signed and queued ✓</T>
+            <H size={26}>Signed and queued</H>
             <T size={13} muted>SHA-256</T>
             <T mono size={12}>{short(phase.manifest.sha256, 16)}</T>
             <T size={13} muted>
@@ -141,7 +141,7 @@ export default function Capture() {
               <View style={styles.modes}>
                 {(["picture", "video"] as const).map((m) => (
                   <Pressable key={m} onPress={() => switchMode(m)} hitSlop={8}>
-                    <T weight={mode === m ? "700" : "400"} style={{ color: mode === m ? "#facc15" : "#fff" }}>
+                    <T weight={mode === m ? "700" : "400"} style={{ color: "#fff", textDecorationLine: mode === m ? "underline" : "none", textTransform: "uppercase", letterSpacing: 1 }}>
                       {m === "picture" ? "PHOTO" : "VIDEO"}
                     </T>
                   </Pressable>

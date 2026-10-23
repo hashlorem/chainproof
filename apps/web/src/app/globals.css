@@ -1,42 +1,45 @@
 @import "tailwindcss";
 
+/* "Evidence form" look: ruled paper, black rules, one signal red for problems. */
 :root {
-  --bg: #f6f7f9;
+  --bg: #f7f7f5;
   --surface: #ffffff;
-  --surface-2: #f0f2f5;
-  --border: #e2e5ea;
-  --ink: #111827;
-  --muted: #5b6472;
-  --accent: #0f766e;
-  --accent-ink: #ffffff;
-  --ok: #15803d;
-  --ok-bg: #e8f5ec;
-  --bad: #b91c1c;
-  --bad-bg: #fdecec;
-  --warn: #b45309;
-  --warn-bg: #fdf3e2;
-  --info-bg: #eaf1fb;
-  --info: #1d4ed8;
+  --surface-2: #efefea;
+  --border: #d4d4ce;
+  --rule: #111111;
+  --ink: #111111;
+  --muted: #55554f;
+  --accent: #111111;
+  --accent-ink: #f7f7f5;
+  --ok: #17663a;
+  --ok-bg: #eef4ef;
+  --bad: #c8281e;
+  --bad-bg: #fbedeb;
+  --warn: #9a5300;
+  --warn-bg: #fbf1e3;
+  --info: #1f4fd1;
+  --info-bg: #edf1fb;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0c0f14;
-    --surface: #131820;
-    --surface-2: #1a212b;
-    --border: #262e3a;
-    --ink: #e7eaf0;
-    --muted: #94a0b2;
-    --accent: #2dd4bf;
-    --accent-ink: #062a26;
-    --ok: #4ade80;
-    --ok-bg: #0f2a1a;
-    --bad: #f87171;
-    --bad-bg: #2d1414;
-    --warn: #fbbf24;
-    --warn-bg: #2b2210;
-    --info-bg: #13213a;
-    --info: #93b4fd;
+    --bg: #121211;
+    --surface: #1a1a18;
+    --surface-2: #242421;
+    --border: #3a3a36;
+    --rule: #edede8;
+    --ink: #edede8;
+    --muted: #a3a39b;
+    --accent: #edede8;
+    --accent-ink: #121211;
+    --ok: #6fcf97;
+    --ok-bg: #13241a;
+    --bad: #ff7062;
+    --bad-bg: #2e1513;
+    --warn: #f0b04a;
+    --warn-bg: #2b2111;
+    --info: #8fb0ff;
+    --info-bg: #151e33;
   }
 }
 
@@ -45,6 +48,7 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-border: var(--border);
+  --color-rule: var(--rule);
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
@@ -57,13 +61,41 @@
   --color-warn-bg: var(--warn-bg);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-plex-mono);
+  --font-mono: var(--font-plex-mono);
+  --font-display: var(--font-archivo);
+  /* Square corners everywhere; rounded-full (spinners, map pins) is unaffected. */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+}
+
+/* Condensed uppercase headings, like the printed headers on a custody form. */
+@utility heading {
+  font-family: var(--font-archivo);
+  font-stretch: 75%;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+/* Small field labels: "CASE NO.", "STATUS". */
+@utility eyebrow {
+  font-size: 10px;
+  line-height: 1.4;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
 }
 
 body {
   background: var(--bg);
   color: var(--ink);
+  font-size: 14px;
 }
 
 .leaflet-container {

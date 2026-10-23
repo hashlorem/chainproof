@@ -59,7 +59,7 @@ export default function EvidencePage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href={`/cases/${e.case_id}`} className="text-sm text-muted hover:text-ink">← Back to case</Link>
-          <h1 className="text-2xl font-semibold tracking-tight">{e.filename}</h1>
+          <h1 className="heading text-4xl">{e.filename}</h1>
           <div className="mt-1 flex flex-wrap gap-1.5">
             {e.provenance === "device_signed" ? <Pill tone="ok">Signed capture</Pill> : <Pill>Imported, no capture signature</Pill>}
             {e.tsa_status === "stamped" ? <Pill tone="info">RFC 3161 timestamped</Pill> : <Pill>Timestamp {e.tsa_status}</Pill>}
@@ -82,9 +82,9 @@ export default function EvidencePage() {
           {isVideo ? (
             <div className="space-y-2">
               {showOriginal ? (
-                <AuthedImage video path={`/evidence/${id}/file?purpose=view`} alt={e.filename} className="max-h-[32rem] w-full rounded-lg bg-black" />
+                <AuthedImage video path={`/evidence/${id}/file?purpose=view`} alt={e.filename} className="max-h-[32rem] w-full bg-black" />
               ) : (
-                <div className="grid aspect-video place-items-center rounded-lg bg-surface-2 text-sm text-muted">Video · {formatBytes(e.size)}</div>
+                <div className="grid aspect-video place-items-center bg-surface-2 text-sm text-muted">Video · {formatBytes(e.size)}</div>
               )}
               <p className="text-xs text-muted">Playing the original is recorded in the chain of custody.</p>
             </div>
@@ -93,7 +93,7 @@ export default function EvidencePage() {
               <AuthedImage
                 path={showOriginal ? `/evidence/${id}/file?purpose=view` : `/evidence/${id}/thumbnail.jpg`}
                 alt={e.filename}
-                className="max-h-[32rem] w-full rounded-lg object-contain"
+                className="max-h-[32rem] w-full object-contain"
               />
               <p className="text-xs text-muted">
                 {showOriginal ? "You are viewing the original. This view was recorded in the chain of custody." : "Showing a preview copy. Opening the original is recorded in the chain of custody."}
@@ -118,7 +118,7 @@ export default function EvidencePage() {
             {e.provenance === "device_signed" && (
               <details className="mt-3 text-sm">
                 <summary className="cursor-pointer text-muted hover:text-ink">Signed manifest</summary>
-                <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-2 p-3 font-mono text-xs">{JSON.stringify(m, null, 2)}</pre>
+                <pre className="mt-2 overflow-x-auto bg-surface-2 p-3 font-mono text-xs">{JSON.stringify(m, null, 2)}</pre>
               </details>
             )}
           </Card>
