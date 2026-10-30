@@ -61,3 +61,23 @@ def evaluate(rows: list[dict]) -> dict:
             "detection_by_post": {p: rate(sum(v), len(v)) for p, v in sorted(by_post.items())},
         }
     return out
+
+
+# File history: each label is judged on the images that truly are that kind, and on all the others.
+HISTORY = {
+    "camera": ("Camera original", lambda r: r["truth"] == "original"),
+    "facebook": ("Passed through Facebook", lambda r: r["truth"] == "facebook"),
+    "whatsapp": ("Consistent with WhatsApp", lambda r: r["truth"] == "whatsapp"),
+    "resaved_with_camera_data": ("Re-saved, camera data copied", lambda r: bool(r.get("exif_kept"))),
+}
+
+
+def evaluate_history(rows: list[dict]) -> dict:
+    out = {}
+    for source, (label, is_true) in HISTORY.items():
+        true = [r for r in rows if is_true(r)]
+        other = [r for r in rows if not is_true(r)]
+        out[source] = {"label": label,
+                       "recognised": rate(sum(r["source"] == source for r in true), len(true)),
+                       "wrongly_given": rate(sum(r["source"] == source for r in other), len(other))}
+    return out

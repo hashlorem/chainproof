@@ -42,10 +42,24 @@ def describe(name: str) -> str | None:
     return text
 
 
+def describe_history(source: str | None) -> str | None:
+    """'Right on 104/105 WhatsApp copies; given to 2.7% of other files (14/525)' or None if that label isn't validated."""
+    h = ((load() or {}).get("history") or {}).get(source or "")
+    if not h or not h["recognised"]["n"]:
+        return None
+    rec, wrong = h["recognised"], h["wrongly_given"]
+    return (f"Right on {rec['rate']:.1%} of test files of this kind ({rec['k']}/{rec['n']}); "
+            f"given wrongly to {wrong['rate']:.1%} of other files ({wrong['k']}/{wrong['n']})")
+
+
 def annotate(report: dict) -> dict:
     """Adds 'validation' text to each finding and a summary block to the report. Leaves the report usable without rates."""
     rates = load()
+    source = report.get("checks", {}).get("structure", {}).get("source")
     for f in report.get("findings", []):
+        if f.get("check") == "structure":
+            f["validation"] = describe_history(source)
+            continue
         name = check_for(f)
         f["validation"] = describe(name) if name else None
     report["validation"] = (
@@ -54,3 +68,23 @@ def annotate(report: dict) -> dict:
         if rates else None
     )
     return report
+
+
+def describe_matching() -> str | None:
+    """'Traced 97.0% of test copies to their original (1019/1050); matched 0 of 10920 unrelated pairs'."""
+    m = (load() or {}).get("matching")
+    if not m:
+        return None
+    c, u = m["copies"], m["unrelated"]
+    return (f"Traced {c['rate']:.1%} of test copies back to their original ({c['k']}/{c['n']}); "
+            f"matched {u['k']} of {u['n']:,} unrelated photo pairs")
+
+
+def describe_difference() -> str | None:
+    """'No changes reported on 0.0% of innocent copies…; outlined 84.4% of edits (532/630)'."""
+    m = (load() or {}).get("difference")
+    if not m:
+        return None
+    f, d = m["false_change"], m["found"]
+    return (f"Reported changes on {f['rate']:.1%} of innocent copies ({f['k']}/{f['n']}); "
+            f"outlined {d['rate']:.1%} of test edits in the right place ({d['k']}/{d['n']})")

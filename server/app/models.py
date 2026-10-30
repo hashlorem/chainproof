@@ -81,6 +81,8 @@ class Evidence(Base):
     tsa_time: Mapped[str | None] = mapped_column(String(32), nullable=True)
     tsa_status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | stamped | failed | disabled
     forensics_json: Mapped[dict | None] = mapped_column(JsonType, nullable=True)
+    # Perceptual hash of images (app/forensics/similarity.py): finds copies of this evidence that were re-saved or edited.
+    phash: Mapped[str | None] = mapped_column(String(16), nullable=True, index=True)
 
 
 class CustodyEntry(Base):

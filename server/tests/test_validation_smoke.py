@@ -51,3 +51,15 @@ def test_clone_detector_still_finds_clones(result):
 
 def test_strong_verdicts_are_rare_on_benign_photos(result):
     assert result["metrics"]["verdict_strong"]["false_alarm"]["k"] == 0, result["metrics"]["verdict_strong"]
+
+
+def test_copies_are_traced_and_unrelated_photos_are_not(result):
+    m = result["matching"]
+    assert m["unrelated"]["k"] == 0, m["unrelated"]
+    assert m["copies"]["k"] >= 44, m["copies"]  # measured 46 of 48 on these photos
+
+
+def test_difference_map_is_quiet_on_innocent_copies_and_finds_edits(result):
+    m = result["matching"]
+    assert m["false_change"]["k"] == 0, m["false_change_by_type"]
+    assert m["found"]["k"] >= 25, m["found_by_type"]  # measured 27 of 36

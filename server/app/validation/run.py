@@ -16,9 +16,9 @@ from PIL import Image, ImageDraw, ImageOps
 
 from app.forensics.common import open_rgb
 from app.forensics.verdict import run_all
-from app.validation import generate
+from app.validation import generate, matching
 from app.validation.dataset import NEGATIVE, POSITIVE, Item, load, manifest_digest
-from app.validation.metrics import CHECKS, evaluate, rate
+from app.validation.metrics import CHECKS, evaluate, evaluate_history, rate
 
 RATES_FILE = Path(__file__).resolve().parent.parent / "forensics" / "validated_rates.json"
 MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}
@@ -64,6 +64,7 @@ def _analyse(job) -> dict:
         "file": item["file"], "sha256": item["sha256"], "truth": item["truth"], "post": item["post"],
         "device": device.group(1) if device else None,
         "verdict": report["verdict"], "score": report["score"],
+        "source": report["checks"]["structure"].get("source"), "exif_kept": bool(item["params"].get("exif_kept")),
         "findings": [f"{f['check']}: {f['title']}" for f in report["findings"]],
         "fired": fired,
         "seconds": round(time.perf_counter() - t, 2),
@@ -99,7 +100,8 @@ def run(root: Path, out: Path | None, workers: int = 8) -> dict:
             rows = list(pool.map(_analyse, jobs, chunksize=4))
     # Detector thresholds were tuned on odd-numbered VISION phones; even-numbered phones are the held-out check.
     holdout = [r for r in rows if r["device"] and int(r["device"][1:]) % 2 == 0]
-    result = {"environment": _environment(root), "counts": _counts(items), "metrics": evaluate(rows),
+    result = {"environment": _environment(root), "counts": _counts(items), "metrics": evaluate(rows), "history": evaluate_history(rows),
+              "matching": matching.run(root, items, workers),
               "metrics_holdout": evaluate(holdout) if holdout else None, "items": rows}
     if out is not None:  # None: measure only (tests), don't publish
         out.mkdir(parents=True, exist_ok=True)
@@ -131,7 +133,9 @@ def rates_for_app(result: dict) -> dict:
     checks["clone"]["detection"] = rate(k, n)
     checks["clone"]["detection_note"] = "copied regions, flagged in the right place"
     return {"validated_at": env["run_at_utc"], "commit": env["git_commit"][:12], "test_set": env["test_set_manifest_sha256"][:16],
-            "checks": checks}
+            "checks": checks, "history": result.get("history", {}),
+            "matching": {k: result["matching"][k] for k in ("copies", "unrelated")} if result.get("matching") else None,
+            "difference": {k: result["matching"][k] for k in ("false_change", "found")} if result.get("matching") else None}
 
 
 def _pct(r: dict) -> str:
@@ -182,6 +186,35 @@ def markdown(result: dict) -> str:
     for v in m.values():
         lines.append(f"| {v['label']} | " + " | ".join(_pct(v["detection_by_type"].get(t)) for t in POSITIVE if t in counts) + " |")
 
+    if result.get("history"):
+        lines += ["", "## File history check", "",
+                  "What the file's structure says about where it has been (camera, Facebook, WhatsApp, re-saved). Each label is "
+                  "judged on the images that truly are that kind (recognised) and on every other image (wrongly given). The rules "
+                  "were written after looking at all VISION classes, so these rates are not from held-out data.", "",
+                  "| Label | Recognised | Wrongly given to other images |", "|---|---|---|"]
+        for v in result["history"].values():
+            lines.append(f"| {v['label']} | {_pct(v['recognised'])} | {_pct(v['wrongly_given'])} |")
+        lines += ["", "\"Looks like a Facebook Messenger copy\" rests on five photos from one sender and is not validated here."]
+
+    if mt := result.get("matching"):
+        lines += ["", "## Copies of evidence: matching and difference map", "",
+                  f"Each derived image (WhatsApp, Facebook, re-saved, resized, edited) is matched against its own original, and every "
+                  f"original against every other one. A match is a perceptual hash at most {mt['threshold']} of 64 bits apart (in any "
+                  "rotation), or up to 24 bits apart when both photos also share one scene geometry (40+ matching points on one "
+                  "homography). The difference map then lines each copy up with its original and outlines what changed.", "",
+                  "| Measure | Result |", "|---|---|",
+                  f"| Copies traced back to their original | {_pct(mt['copies'])} (hash alone: {_pct(mt['copies_hash_only'])}) |",
+                  f"| Same, held-out phones only | {_pct(mt['copies_holdout'])} |",
+                  f"| Unrelated photo pairs wrongly matched | {_pct(mt['unrelated'])}; closest unrelated pair {mt['closest_unrelated']} bits "
+                  f"apart; {mt['borderline_checked']} look-alike pairs went through the geometry check |",
+                  f"| Difference map reports changes on innocent copies | {_pct(mt['false_change'])} |",
+                  f"| Difference map outlines the edited area | {_pct(mt['found'])} |", "",
+                  "| Edit | Copy matched | Edit outlined |", "|---|---|---|"]
+        for k, v in mt["found_by_type"].items():
+            lines.append(f"| {k} | {_pct(mt['copies_by_type'].get(k))} | {_pct(v)} |")
+        lines += ["", "The difference map needs the original. That is why it finds splices that copy-move detection cannot: "
+                  "it compares against what the camera recorded instead of searching one image for internal copies."]
+
     posts = sorted({p for v in m.values() for p in v["detection_by_post"]})
     lines += ["", "## Detection by processing after the edit", "", "| Check | " + " | ".join(posts) + " |", "|---|" + "---|" * len(posts)]
     for v in m.values():
@@ -209,6 +242,8 @@ def markdown(result: dict) -> str:
         "- The copy-move thresholds were tuned on the odd-numbered phones (see the held-out table), except the rule for "
         "overlapping source and copy (at least 60 matches), which was set from the largest overlapping false alarm on all "
         "benign images (24 matches) after a real overlapping forgery was missed. Its false-alarm rate is therefore not independent.",
+        "- The matching thresholds (10 bits; 24 bits with 40 scene points) were chosen after looking at all phones, so the "
+        "held-out matching row is not an independent check. The file history rules were also written after looking at all classes.",
         "- Copy-move detection is not designed to find splices (a region from a different photo); its splice row shows that.",
         "- \"Flagged in the edited area\" counts a hit only if a flagged box lies at least 30% inside the edited region. "
         "Plain \"detection\" also counts hits elsewhere in the photo, which are lucky rather than correct.",

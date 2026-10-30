@@ -1,6 +1,6 @@
 """Turns individual findings into one plain-language verdict. Indicators only: never proof."""
 
-from app.forensics import c2pa_check, copymove, ela, exif, rates
+from app.forensics import c2pa_check, copymove, ela, exif, rates, structure
 from app.forensics.common import finding, open_rgb
 
 WEIGHT = {"info": 0, "low": 1, "medium": 2, "high": 3}
@@ -21,6 +21,7 @@ def run_all(data: bytes, mime: str, provenance_verified: bool = False) -> dict:
         "ela": ela.analyze(img),
         "copy_move": copymove.analyze(img),
         "c2pa": c2pa_check.analyze(data, mime),
+        "structure": structure.analyze(data),
     }
     findings = [f | {"check": name} for name, r in results.items() for f in r["findings"]]
     score = sum(WEIGHT[f["severity"]] for f in findings)

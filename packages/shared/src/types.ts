@@ -28,6 +28,7 @@ export const CUSTODY_ACTIONS = [
   "NOTED",
   "CONCLUDED",
   "REVIEWED",
+  "COMPARED",
 ] as const;
 export type CustodyAction = (typeof CUSTODY_ACTIONS)[number];
 

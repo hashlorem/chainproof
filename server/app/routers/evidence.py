@@ -16,6 +16,7 @@ from app.core import tsa
 from app.core.chain import append_entry
 from app.core.security import current_user, require_role
 from app.core.signing import verify_manifest
+from app.forensics.similarity import image_phash
 from app.db import SessionLocal, get_db
 from app.models import Device, Evidence, User
 from app.routers.cases import get_case
@@ -113,6 +114,7 @@ async def upload_evidence(
         signature=signature,
         provenance=provenance,
         tsa_status="pending" if settings.tsa_enabled else "disabled",
+        phash=image_phash(data) if mime.startswith("image/") else None,
     )
     db.add(ev)
     db.flush()

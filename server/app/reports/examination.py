@@ -78,7 +78,12 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     # 2. File structure
     meta, c2pa = checks["metadata"], checks["c2pa"]
     tags = ", ".join(f"{k}: {v}" for k, v in meta.get("tags", {}).items()) or "none"
-    story += [Paragraph("2. File structure", h2), _table([
+    st = checks.get("structure") or {}
+    history_rows = [["History", _p(f"{st['label']}. {st['detail']}")]] if st.get("label") else []
+    if st.get("quality") is not None:
+        history_rows.append(["Compression", _p(f"about quality {st['quality']} · {'standard' if st.get('standard_table') else 'custom'} table · "
+                                               f"{'progressive' if st.get('progressive') else 'baseline'} · blocks: {' → '.join(st.get('blocks') or [])}")])
+    story += [Paragraph("2. File structure", h2), _table(history_rows + [
         ["Format", f"{meta.get('format')} · {meta.get('width')} × {meta.get('height')} px"],
         ["EXIF", _p(tags)],
         ["GPS", _p(f"{meta['gps']['lat']}, {meta['gps']['lon']}" if meta.get("gps") else "none")],
