@@ -2,7 +2,7 @@
 
 Each check was run on a labelled test set of benign and manipulated images. **False alarm** is how often the check fires on a benign image; **detection** is how often it fires on a manipulated one. Every rate has its sample size and a 95% Wilson confidence interval. This follows the approach of NIST CFTT (tool testing against known samples) and ISO/IEC 27041 (assuring a method is fit for purpose).
 
-- Run: 2026-10-30T13:03:07Z · commit `756c0362f040`
+- Run: 2026-10-30T16:41:26Z · commit `e02461e70436`
 - Test set: 525 benign + 630 manipulated images · manifest SHA-256 `5c167bb32423dd8237bed5d08c07b87cf649434daa7dfbd8eb529352f9abf5be`
 - Environment: Python 3.12.13 · macOS-27.0.1-arm64-arm-64bit · numpy 2.5.4, opencv-python-headless 5.0.0.93, pillow 12.3.0, c2pa-python 0.38.0
 
@@ -56,6 +56,42 @@ The copy-move thresholds were chosen using the odd-numbered VISION phones (D01, 
 | Verdict: Suspicious or worse | 91.4% (96/105; 95% CI 84.5–95.4%) | 80.0% (84/105; 95% CI 71.4–86.5%) | 84.8% (89/105; 95% CI 76.7–90.4%) | 92.4% (97/105; 95% CI 85.7–96.1%) | 65.7% (69/105; 95% CI 56.2–74.1%) | 0.9% (1/105; 95% CI 0.2–5.2%) |
 | Verdict: Likely manipulated / AI | 85.7% (90/105; 95% CI 77.8–91.1%) | 77.1% (81/105; 95% CI 68.2–84.1%) | 75.2% (79/105; 95% CI 66.2–82.5%) | 88.6% (93/105; 95% CI 81.1–93.3%) | 57.1% (60/105; 95% CI 47.6–66.2%) | 0.9% (1/105; 95% CI 0.2–5.2%) |
 
+## File history check
+
+What the file's structure says about where it has been (camera, Facebook, WhatsApp, re-saved). Each label is judged on the images that truly are that kind (recognised) and on every other image (wrongly given). The rules were written after looking at all VISION classes, so these rates are not from held-out data.
+
+| Label | Recognised | Wrongly given to other images |
+|---|---|---|
+| Camera original | 100.0% (105/105; 95% CI 96.5–100.0%) | 0.0% (0/1050; 95% CI 0.0–0.4%) |
+| Passed through Facebook | 100.0% (105/105; 95% CI 96.5–100.0%) | 0.0% (0/1050; 95% CI 0.0–0.4%) |
+| Consistent with WhatsApp | 99.1% (104/105; 95% CI 94.8–99.8%) | 1.3% (14/1050; 95% CI 0.8–2.2%) |
+| Re-saved, camera data copied | 100.0% (333/333; 95% CI 98.9–100.0%) | 0.0% (0/822; 95% CI 0.0–0.5%) |
+
+"Looks like a Facebook Messenger copy" rests on five photos from one sender and is not validated here.
+
+## Copies of evidence: matching and difference map
+
+Each derived image (WhatsApp, Facebook, re-saved, resized, edited) is matched against its own original, and every original against every other one. A match is a perceptual hash at most 10 of 64 bits apart (in any rotation), or up to 24 bits apart when both photos also share one scene geometry (40+ matching points on one homography). The difference map then lines each copy up with its original and outlines what changed.
+
+| Measure | Result |
+|---|---|
+| Copies traced back to their original | 99.9% (1049/1050; 95% CI 99.5–100.0%) (hash alone: 97.0% (1019/1050; 95% CI 95.8–97.9%)) |
+| Same, held-out phones only | 100.0% (510/510; 95% CI 99.2–100.0%) |
+| Unrelated photo pairs wrongly matched | 0.0% (0/10920; 95% CI 0.0–0.0%); closest unrelated pair 14 bits apart; 2141 look-alike pairs went through the geometry check |
+| Difference map reports changes on innocent copies | 0.0% (0/420; 95% CI 0.0–0.9%) |
+| Difference map outlines the edited area | 82.9% (522/630; 95% CI 79.7–85.6%) |
+
+| Edit | Copy matched | Edit outlined |
+|---|---|---|
+| clone_same | 100.0% (105/105; 95% CI 96.5–100.0%) | 87.6% (92/105; 95% CI 80.0–92.6%) |
+| clone_nearby | 100.0% (105/105; 95% CI 96.5–100.0%) | 63.8% (67/105; 95% CI 54.3–72.4%) |
+| clone_scaled | 100.0% (105/105; 95% CI 96.5–100.0%) | 89.5% (94/105; 95% CI 82.2–94.0%) |
+| clone_rotated | 100.0% (105/105; 95% CI 96.5–100.0%) | 86.7% (91/105; 95% CI 78.9–91.9%) |
+| removal | 99.1% (104/105; 95% CI 94.8–99.8%) | 74.3% (78/105; 95% CI 65.2–81.7%) |
+| splice | 100.0% (105/105; 95% CI 96.5–100.0%) | 95.2% (100/105; 95% CI 89.3–98.0%) |
+
+The difference map needs the original. That is why it finds splices that copy-move detection cannot: it compares against what the camera recorded instead of searching one image for internal copies.
+
 ## Detection by processing after the edit
 
 | Check | jpeg q75 | jpeg q85 | jpeg q95 | messenger-like |
@@ -91,6 +127,7 @@ Camera photos come from the VISION dataset (Shullani et al., *EURASIP Journal on
 - Manipulations are synthetic: irregular feathered regions on textured areas, like a lasso selection. A skilled forger (matching lighting, retouching edges, adding noise) will be harder to detect than these numbers suggest.
 - Benign images are phone photos of natural scenes. Other content (screenshots, scans, artwork, product shelves with identical items) can behave differently. Identical real objects are a known clone-detector false alarm.
 - The copy-move thresholds were tuned on the odd-numbered phones (see the held-out table), except the rule for overlapping source and copy (at least 60 matches), which was set from the largest overlapping false alarm on all benign images (24 matches) after a real overlapping forgery was missed. Its false-alarm rate is therefore not independent.
+- The matching thresholds (10 bits; 24 bits with 40 scene points) were chosen after looking at all phones, so the held-out matching row is not an independent check. The file history rules were also written after looking at all classes.
 - Copy-move detection is not designed to find splices (a region from a different photo); its splice row shows that.
 - "Flagged in the edited area" counts a hit only if a flagged box lies at least 30% inside the edited region. Plain "detection" also counts hits elsewhere in the photo, which are lucky rather than correct.
 - AI-generated images are not in this test set. The C2PA check only reads credentials that the generator embedded; it cannot detect AI images whose credentials were removed.

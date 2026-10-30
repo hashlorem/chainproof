@@ -14,6 +14,8 @@ Tamper-evident digital evidence for investigators: a **phone app** that signs ev
 | Who touched it since? | **Hash-chained custody log**: each entry hashes the previous one and is signed by the server. The database refuses UPDATE/DELETE |
 | Is this printed report genuine? | Every PDF is registered by hash. Anyone can check it on the public `/verify` page |
 | Was the photo edited? | Copy-move (clone) detection that also finds resized and rotated copies, metadata analysis, C2PA Content Credentials, and an error-level heatmap as a visual aid |
+| Where has this photo been? | **File history** from the file's structure: camera original, re-saved by software (even when camera data was copied across), Facebook, consistent with WhatsApp, Messenger |
+| Is this a copy of our evidence, and what changed? | **Visual fingerprints** find re-saved, resized, rotated or edited copies of stored evidence; a **difference map** outlines exactly what changed, including splices |
 | How far can I trust each check? | Every check has a **measured error rate** from a labelled test set of real phone photos (`docs/validation`), shown next to each finding |
 | Who concluded what, and was it checked? | **Examinations**: notes, a conclusion on a stated scale, and a second examiner's review, all written into the custody chain, plus a per-item examination report |
 
@@ -111,7 +113,7 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 52 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
+cd server && uv run pytest                # 68 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
                                           #   examinations, and a validation regression gate on six real photos
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
 
@@ -136,6 +138,15 @@ lab would:
 
 All of these are custody entries, so they can't be edited or deleted. **Check a photo** can file any photo into a case
 with **Open an examination**.
+
+### Copies of evidence
+
+**Check a photo** also searches every evidence image for copies: a WhatsApp or Facebook version, a screenshot, a
+resized, rotated or edited copy. Each hit is either a *visual match* (perceptual hash within 10 of 64 bits) or *same
+scene, visibly changed* (up to 24 bits, confirmed by 40+ matching points on one scene geometry). **Compare** lines the
+copy up with the stored original and outlines what changed. Each evidence page has the same **Compare a copy** panel.
+Comparisons are logged in custody as `COMPARED`. The search needs a login: a public version would let anyone probe whether
+a photo is held as evidence.
 
 ### On your own machine (no server)
 
@@ -165,7 +176,10 @@ Latest results (1,155 images; full detail and 95% confidence intervals in the re
 | Untouched photos (incl. WhatsApp, Facebook, re-saved, resized) called *Likely manipulated* | **0 of 525** |
 | Untouched photos called *Suspicious* or worse | **0.8%** (4 of 525); 0.4% on phones held out from tuning |
 | Copied regions found **in the right place**: same size / nearby / resized / rotated / object removal | 91% / 77% / 84% / 92% / 64% |
-| Splices from a different photo | **not detected** (0%): copy-move can't see them, and ELA proved unreliable |
+| Splices from a different photo, photo examined alone | **not detected** (0%): copy-move can't see them, and ELA proved unreliable |
+| Copies traced back to their stored original | **99.9%** (1,049 of 1,050); unrelated photos wrongly matched: **0 of 10,920** pairs |
+| Difference map against the original: changes reported on innocent copies / edits outlined | **0 of 420** / **83%** (splices **95%**) |
+| File history: camera originals / Facebook / WhatsApp recognised | 100% / 100% / 99%; no re-saved file ever called a camera original (0 of 1,050) |
 | AI-generated images | only via Content Credentials; no learned detector passed testing |
 
 The full report, with 95% confidence intervals, results by edit type and by recompression, a held-out check and the
@@ -204,7 +218,9 @@ uv run pytest tests/test_migrations.py                              # fails if m
    Click **Verify** again. The timeline turns red at the exact entry that was forged.
 5. **Forensics.** Import an edited photo, for example one with a cloned area, then click **Run analysis**. It shows "Likely manipulated" with the clone highlighted, and how often that check is wrong.
    Add a note, record a conclusion as the investigator, review it as the supervisor, and export the examination report.
-6. **Report.** Click **Export PDF** and scan its QR code with a phone. The public page confirms the record. Edit one byte of the PDF and it is no longer recognised.
+6. **Copies.** In **Check a photo**, drop the edited copy of a photo whose original is in a case. ChainProof finds the
+   original ("same scene, visibly changed") and **Compare** outlines exactly what was changed.
+7. **Report.** Click **Export PDF** and scan its QR code with a phone. The public page confirms the record. Edit one byte of the PDF and it is no longer recognised.
 
 ## Security notes
 
