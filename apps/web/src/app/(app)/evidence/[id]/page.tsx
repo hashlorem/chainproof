@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { AuthedImage } from "@/components/AuthedImage";
+import { ComparePanel } from "@/components/CompareView";
 import { ExaminationPanel } from "@/components/ExaminationPanel";
 import { ForensicsView } from "@/components/ForensicsView";
 import { MapView } from "@/components/MapView";
@@ -151,6 +152,12 @@ export default function EvidencePage() {
               {!canWrite && " An investigator or supervisor can run it."}
             </p>
           )}
+        </Card>
+      )}
+
+      {isImage && (
+        <Card title="Compare a copy with this original">
+          <ComparePanel evidenceId={id} />
         </Card>
       )}
 

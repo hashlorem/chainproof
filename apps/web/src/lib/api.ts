@@ -40,7 +40,23 @@ export interface ForensicReport {
     ela: { mean_error: number; outlier_ratio: number; heatmap_png?: string; has_ela_image?: boolean };
     copy_move: { pairs: number; regions: unknown[]; overlay_png?: string | null; has_copymove_image?: boolean };
     c2pa: { present: boolean; generator?: string; issuer?: string; validation_state?: string; ai_generated?: boolean };
+    /** File history: what the file's structure says about where it has been. Older reports don't have it. */
+    structure?: {
+      source: string; label: string; detail: string; format: string;
+      progressive?: boolean; quality?: number | null; standard_table?: boolean; blocks?: string[]; camera?: string | null; software?: string | null;
+    };
   };
+}
+export interface EvidenceMatch {
+  evidence_id: string; case_id: string; case_title: string | null; filename: string; received_at: string;
+  distance: number; identical: boolean;
+  /** "match": looks the same; "edited_copy": looks different but shares the scene geometry (heavily edited copy). */
+  kind: "match" | "edited_copy"; scene_points: number | null;
+}
+export interface MatchResponse { sha256: string; matches: EvidenceMatch[]; threshold: number; validation: string | null }
+export interface CompareResult {
+  aligned: string; changed_ratio: number; regions: number[][]; overlay_png: string; findings: Finding[];
+  distance: number; questioned_sha256: string; validation: string | null;
 }
 export type ConclusionLevel = "none" | "limited" | "moderate" | "strong" | "very_strong";
 export interface Examination {

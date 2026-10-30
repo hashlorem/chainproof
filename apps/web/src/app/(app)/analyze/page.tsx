@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ComparePanel } from "@/components/CompareView";
 import { Dropzone } from "@/components/Dropzone";
 import { ForensicsView } from "@/components/ForensicsView";
-import { Button, Card, ErrorBox, Loading, inputClass } from "@/components/ui";
-import { api, type Case, type Evidence, type ForensicReport } from "@/lib/api";
+import { Button, Card, ErrorBox, Loading, Pill, inputClass } from "@/components/ui";
+import { api, formatTs, type Case, type Evidence, type ForensicReport, type MatchResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
 
@@ -15,6 +17,7 @@ export default function AnalyzePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [matches, setMatches] = useState<MatchResponse | null>(null);
   const [caseId, setCaseId] = useState("");
   const router = useRouter();
   const { user } = useAuth();
@@ -50,7 +53,12 @@ export default function AnalyzePage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      setReport(await api.post<ForensicReport>("/forensics/analyze", fd));
+      const [analysis, found] = await Promise.all([
+        api.post<ForensicReport>("/forensics/analyze", fd),
+        api.post<MatchResponse>("/forensics/match", fd).catch(() => null),
+      ]);
+      setReport(analysis);
+      setMatches(found);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -78,13 +86,39 @@ export default function AnalyzePage() {
       {busy && <Loading label="Analysing: metadata, error levels, cloned areas, Content Credentials…" />}
       {error && <ErrorBox>{error}</ErrorBox>}
       {report && (
-        <Card title="Result" actions={<Button variant="secondary" onClick={() => { setReport(null); setPreview(null); setFile(null); }}>Check another</Button>}>
+        <Card title="Result" actions={<Button variant="secondary" onClick={() => { setReport(null); setPreview(null); setFile(null); setMatches(null); }}>Check another</Button>}>
           <ForensicsView
             report={report}
             original={preview ? { kind: "b64", data: preview } : null}
             ela={report.checks.ela.heatmap_png ? { kind: "b64", data: report.checks.ela.heatmap_png } : null}
             copymove={report.checks.copy_move.overlay_png ? { kind: "b64", data: report.checks.copy_move.overlay_png } : null}
           />
+          {matches && (
+            <div className="mt-6 space-y-3 border-t-2 border-rule pt-4">
+              <h3 className="heading text-lg">Copies of your evidence</h3>
+              {matches.matches.length === 0 ? (
+                <p className="text-sm text-muted">This photo doesn&apos;t look like any image held as evidence, even allowing for re-saving, resizing or rotation.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {matches.matches.map((m) => (
+                    <li key={m.evidence_id} className="space-y-2 border-2 border-rule p-3">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
+                        <span>
+                          <Link href={`/evidence/${m.evidence_id}`} className="font-semibold underline">{m.filename}</Link>
+                          <span className="text-muted"> · {m.case_title ?? "case"} · received {formatTs(m.received_at)}</span>
+                        </span>
+                        {m.identical ? <Pill tone="ok">Identical file</Pill>
+                          : m.kind === "edited_copy" ? <Pill tone="bad">{`Same scene, visibly changed · ${m.scene_points} matching points`}</Pill>
+                          : <Pill tone="warn">{`Visual match · ${m.distance}/64 bits apart`}</Pill>}
+                      </div>
+                      {!m.identical && <ComparePanel evidenceId={m.evidence_id} initialFile={file} />}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {matches.validation && <p className="text-xs text-muted"><span className="eyebrow">How reliable</span> {matches.validation}</p>}
+            </div>
+          )}
           {canWrite && (
             <div className="mt-6 space-y-2 border-t-2 border-rule pt-4">
               <h3 className="heading text-lg">Investigate this photo properly</h3>

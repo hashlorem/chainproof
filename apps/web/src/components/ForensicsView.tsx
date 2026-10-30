@@ -96,6 +96,18 @@ export function ForensicsView({ report, original, ela, copymove }: {
             )}
           </div>
 
+          {report.checks.structure && (
+            <Section title="File history">
+              <p className="py-2 text-sm"><span className="font-semibold">{report.checks.structure.label}.</span> <span className="text-muted">{report.checks.structure.detail}</span></p>
+              {report.checks.structure.quality != null && (
+                <Field label="Compression">
+                  {`about quality ${report.checks.structure.quality} · ${report.checks.structure.standard_table ? "standard" : "custom"} table · ${report.checks.structure.progressive ? "progressive" : "baseline"}`}
+                </Field>
+              )}
+              {!!report.checks.structure.blocks?.length && <Field label="Header blocks">{report.checks.structure.blocks.join(" → ")}</Field>}
+            </Section>
+          )}
+
           <Section title="Metadata">
             <Field label="Format">{meta.format} · {meta.width}×{meta.height}</Field>
             {Object.entries(meta.tags).map(([k, v]) => <Field key={k} label={k}>{v}</Field>)}

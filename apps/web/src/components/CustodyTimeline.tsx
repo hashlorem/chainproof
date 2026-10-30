@@ -22,6 +22,7 @@ const ACTION_LABEL: Record<string, string> = {
   NOTED: "Examiner note",
   CONCLUDED: "Examiner conclusion",
   REVIEWED: "Technical review",
+  COMPARED: "Compared with a copy",
 };
 
 function describe(e: CustodyEntry, users: Map<string, User>): string | null {
@@ -40,6 +41,7 @@ function describe(e: CustodyEntry, users: Map<string, User>): string | null {
     case "CONCLUDED": return d.level === "none" ? "No support either way" : `${String(d.level).replaceAll("_", " ")} support for: ${d.h1}`;
     case "REVIEWED": return d.agrees ? "Agrees with the conclusion" : "Does not agree with the conclusion";
     case "EXPORTED": return d.kind === "examination" ? "Examination report" : "Case report";
+    case "COMPARED": return `${d.questioned_filename || "A copy"}: ${Number(d.regions) ? `${d.regions} changed region(s)` : "no changes found"}`;
     default: return null;
   }
 }
