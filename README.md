@@ -13,7 +13,9 @@ Tamper-evident digital evidence for investigators: a **phone app** that signs ev
 | Could the time be faked? | Independent **RFC 3161 trusted timestamp** from FreeTSA on every upload |
 | Who touched it since? | **Hash-chained custody log**: each entry hashes the previous one and is signed by the server. The database refuses UPDATE/DELETE |
 | Is this printed report genuine? | Every PDF is registered by hash. Anyone can check it on the public `/verify` page |
-| Was the photo edited? | Metadata analysis, Error Level Analysis, copy-move (clone) detection, C2PA Content Credentials |
+| Was the photo edited? | Copy-move (clone) detection that also finds resized and rotated copies, metadata analysis, C2PA Content Credentials, and an error-level heatmap as a visual aid |
+| How far can I trust each check? | Every check has a **measured error rate** from a labelled test set of real phone photos (`docs/validation`), shown next to each finding |
+| Who concluded what, and was it checked? | **Examinations**: notes, a conclusion on a stated scale, and a second examiner's review, all written into the custody chain, plus a per-item examination report |
 
 ## Layout
 
@@ -109,12 +111,76 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 36 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations
+cd server && uv run pytest                # 52 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
+                                          #   examinations, and a validation regression gate on six real photos
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
 
 # Same server suite against Postgres (the database is wiped first, so use a throwaway one):
 CHAINPROOF_TEST_DATABASE_URL=postgresql+psycopg://user@localhost:5432/chainproof_test uv run pytest
 ```
+
+GitHub Actions runs the server tests and the shared, web and mobile checks on every push (`.github/workflows/ci.yml`).
+
+## Examining a photo
+
+On a case's evidence page, below **Photo forensics**, the **Examination** panel records the work the way a forensic
+lab would:
+
+1. **Notes**: what you did and observed, as you go.
+2. **Conclusion**: two competing explanations (H1 and H2), how strongly the findings support one over the other
+   (*no support / limited / moderate / strong / very strong*), your reasoning and your limitations. Never "proves".
+3. **Technical review**: a *different* examiner agrees or disagrees. A new conclusion needs a new review.
+4. **Examination report (PDF)**: provenance and hashes, file structure, heatmap and clone overlay, findings with their
+   measured error rates, notes, conclusion, review, method and tool versions. It is registered by hash, so `/verify`
+   recognises it.
+
+All of these are custody entries, so they can't be edited or deleted. **Check a photo** can file any photo into a case
+with **Open an examination**.
+
+### On your own machine (no server)
+
+```bash
+cd server
+uv run python -m scripts.examine file ~/Downloads/photo.jpg --out exam/ --examiner "Your Name" --source "Sent by …"
+uv run python -m scripts.examine batch ~/Downloads/case-photos --out exam/      # one folder per photo + summary.csv
+```
+
+The photo is hashed first, analysed only as a copy, and hashed again at the end. If the hashes differ, the run stops.
+Each photo gets `report.json`, the overlays and `examination.pdf`.
+
+## How reliable are the checks? (validation)
+
+Forensic tools are only trustworthy if you know how often they're wrong. `server/app/validation` tests every check on a
+labelled set of benign and manipulated images, in the spirit of NIST's Computer Forensics Tool Testing (CFTT):
+
+- **Benign:** 105 real photos from 35 phones (the VISION dataset, CC BY-SA 4.0), the same photos after WhatsApp and
+  Facebook, re-saved, and resized.
+- **Manipulated:** generated from those photos: same-size, nearby, resized and rotated clones, object removal, and
+  splices from another phone's photo, then re-saved at different qualities or recompressed like a messenger.
+
+Latest results (1,155 images; full detail and 95% confidence intervals in the report):
+
+| | Result |
+|---|---|
+| Untouched photos (incl. WhatsApp, Facebook, re-saved, resized) called *Likely manipulated* | **0 of 525** |
+| Untouched photos called *Suspicious* or worse | **0.8%** (4 of 525); 0.4% on phones held out from tuning |
+| Copied regions found **in the right place**: same size / nearby / resized / rotated / object removal | 91% / 77% / 84% / 92% / 64% |
+| Splices from a different photo | **not detected** (0%): copy-move can't see them, and ELA proved unreliable |
+| AI-generated images | only via Content Credentials; no learned detector passed testing |
+
+The full report, with 95% confidence intervals, results by edit type and by recompression, a held-out check and the
+limitations, is in [`docs/validation/VALIDATION.md`](docs/validation/VALIDATION.md). To reproduce it (about 1.3 GB of
+test images, around 7 minutes on 8 cores):
+
+```bash
+cd server
+uv run python -m scripts.validate fetch-vision --root validation_data
+uv run python -m scripts.validate generate --root validation_data
+uv run python -m scripts.validate run --root validation_data --out ../docs/validation
+```
+
+**Rule:** after changing anything in `server/app/forensics`, re-run the validation and commit the new report together with
+`server/app/forensics/validated_rates.json`.
 
 ## Changing the database
 
@@ -136,7 +202,8 @@ uv run pytest tests/test_migrations.py                              # fails if m
    cd server && uv run python -m scripts.tamper_demo --smart
    ```
    Click **Verify** again. The timeline turns red at the exact entry that was forged.
-5. **Forensics.** Import an edited photo, for example one with a cloned area, then click **Run analysis**. It shows "Likely manipulated" with the clone highlighted.
+5. **Forensics.** Import an edited photo, for example one with a cloned area, then click **Run analysis**. It shows "Likely manipulated" with the clone highlighted, and how often that check is wrong.
+   Add a note, record a conclusion as the investigator, review it as the supervisor, and export the examination report.
 6. **Report.** Click **Export PDF** and scan its QR code with a phone. The public page confirms the record. Edit one byte of the PDF and it is no longer recognised.
 
 ## Security notes
