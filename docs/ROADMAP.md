@@ -13,6 +13,8 @@ every examiner action in the append-only custody log, and every conclusion on a 
 | 1 | Command-line examiner, CI | `server/scripts/examine.py`, `.github/workflows/ci.yml` |
 | 2 | File history: camera / re-saved / Facebook / WhatsApp / Messenger from the file's structure | `server/app/forensics/structure.py` |
 | 2 | Copies of evidence: perceptual-hash search with scene-geometry confirmation, difference map, `COMPARED` custody entries | `server/app/forensics/similarity.py`, `server/app/routers/forensics.py` |
+| 2 | Comparisons with copies in the examination PDF | `server/app/reports/examination.py` |
+| 2 | Threat model and standards mapping | `docs/security/chainproof-threat-model.md`, `docs/security/standards-mapping.md` |
 
 ## Phase 2: still to do
 
@@ -22,13 +24,25 @@ presentation. AI detection moved to the friend (next section). Follow *Working i
 
 | # | Item | Why | How to validate |
 |---|---|---|---|
-| 1 | **Comparisons in the examination PDF** (*now*) | Today a comparison is only a custody entry; the report should show the difference map and its numbers | Unit test: a compared item's PDF contains the comparison section |
 | 2 | **Validate the Messenger fingerprint** (friend can collect samples while building the AI set) | It rests on five photos from one sender's phone | Collect Messenger copies from several phones and app versions; add a `messenger` class to the test set; keep the label only if recognised ≥ 90% with ≤ 1% given wrongly |
 | 3 | **Noise inconsistency map** (*now, if validation shows it helps*) | Spliced regions often carry different sensor noise; the difference map needs an original, this doesn't | Add as a check in `app/forensics`; run the harness; it may push the verdict only if it beats its false-alarm rate (as ELA failed to) |
 | 4 | **JPEG ghosts** (Farid) | Shows regions that were compressed at a different quality before being pasted | Same as #3 |
 | 5 | **Write C2PA Content Credentials** into signed captures (`c2pa-python` Builder) | Any C2PA verifier (Adobe's, the official tool) could then check our provenance, not only ChainProof | Round-trip test: our credential validates with `c2patool`; document that a self-signed certificate shows as "untrusted signer" |
-| 6 | **Threat model + standards mapping** (*now*) | Who could tamper and how each attack is caught; how each ISO/IEC 27037/27041/27042 requirement maps to a feature. Both go straight into the slides | Review against the code; the threat model with the `security-threat-model` skill |
 | 7 | **Platform trust** | What a real lab would ask about | Hardware-backed device keys with Android key attestation (new APK); Postgres + MinIO/S3 object lock |
+
+### Security fixes from the threat model (`docs/security/chainproof-threat-model.md`)
+
+| Threat | Fix | Priority | Size |
+|---|---|---|---|
+| TM-003 | `demo.sh` refuses to start while any account uses the demo password; force a password change on first login | critical (demo) | small |
+| TM-004 | Behind the tunnel, take the client address from `CF-Connecting-IP`; operator unlock command | medium | small |
+| TM-005 | Stream and cap `POST /public/verify` uploads; rate-limit public endpoints | medium | small |
+| TM-011 | Only a validated, trusted C2PA manifest gives the "AI-generated" verdict; metadata-only AI names become a medium indicator (touches `verdict.py`: coordinate with the AI-detection branch) | medium | small |
+| TM-001 | Timestamp the custody log's head with FreeTSA and print it in every report; key away from the database when hosted | high | medium |
+| TM-002 | Supervisor approval before a new device can sign; show enrolment date and approver in reports | high | medium |
+| TM-006 | Run image analysis in a worker process with time and memory limits; lower Pillow's pixel limit; `pip-audit` in CI | medium | medium |
+| TM-008 | Require the phone passcode when no biometrics are enrolled (new APK) | medium | small |
+| TM-007 | Content-Security-Policy for the web app | low | small |
 
 ## Friend: AI detection that survives missing metadata and compression
 
