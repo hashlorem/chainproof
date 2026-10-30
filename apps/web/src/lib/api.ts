@@ -62,6 +62,10 @@ export type ConclusionLevel = "none" | "limited" | "moderate" | "strong" | "very
 export interface Examination {
   question: string | null;
   notes: { seq: number; ts: string; by: string; text: string }[];
+  comparisons: {
+    seq: number; ts: string; by: string; filename: string; sha256: string; distance: number;
+    changed_ratio: number; regions: number; aligned: string | null; overlay: string | null;
+  }[];
   conclusion: {
     seq: number; ts: string; by: string; by_id: string; question: string; h1: string; h2: string;
     level: string; level_key: ConclusionLevel; rationale: string; limitations: string;

@@ -1,3 +1,5 @@
+import io
+
 import pytest
 
 from tests.test_forensics import jpeg, scene
@@ -61,3 +63,22 @@ def test_conclusion_needs_reasoning_and_limits(client, investigator, item):
 def test_report_needs_analysis(client, investigator, phone, case_id, original):
     ev = phone.upload(case_id, original).json()
     assert client.post(f"/evidence/{ev['id']}/examination-report", headers=investigator["headers"]).status_code == 409
+
+
+def test_comparisons_are_part_of_the_examination(client, investigator, phone, case_id):
+    from PIL import Image
+
+    from tests.test_forensics import PHOTOS
+    original = PHOTOS.joinpath("D10_I_nat_0090.jpg").read_bytes()
+    ev = phone.upload(case_id, original).json()
+    assert client.post(f"/evidence/{ev['id']}/analyze", headers=investigator["headers"]).status_code == 200
+    edited = Image.open(io.BytesIO(original)).convert("RGB")
+    edited.paste(Image.open(PHOTOS / "D22_I_nat_0082.jpg").convert("RGB").crop((300, 300, 460, 460)), (600, 150))
+    r = client.post(f"/evidence/{ev['id']}/compare", files={"file": ("tip.jpg", jpeg(edited, 85), "image/jpeg")}, headers=investigator["headers"])
+    assert r.status_code == 200 and r.json()["regions"]
+
+    state = client.get(f"/evidence/{ev['id']}/examination", headers=investigator["headers"]).json()
+    c = state["comparisons"][0]
+    assert c["filename"] == "tip.jpg" and c["regions"] > 0 and c["overlay"].startswith("compare-")
+    pdf = client.post(f"/evidence/{ev['id']}/examination-report", headers=investigator["headers"])
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")

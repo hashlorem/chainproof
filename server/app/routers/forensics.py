@@ -143,8 +143,12 @@ async def compare_with_evidence(evidence_id: str, file: UploadFile = File(...), 
     sha = hashlib.sha256(data).hexdigest()
     result |= {"questioned_sha256": sha, "distance": closest(phashes(questioned), phash(original)),
                "validation": rates.describe_difference()}
+    # Keep the difference map with the evidence (like the ELA heatmap) so the examination report can show it.
+    overlay = f"compare-{sha[:16]}.png"
+    storage.save_derived(ev.id, overlay, base64.b64decode(result["overlay_png"]))
     append_entry(db, ev.case_id, "COMPARED", user.id, ev.id, {
         "questioned_sha256": sha, "questioned_filename": (file.filename or "")[:200], "distance": result["distance"],
-        "changed_ratio": result["changed_ratio"], "regions": len(result["regions"])})
+        "changed_ratio": result["changed_ratio"], "regions": len(result["regions"]), "aligned": result["aligned"],
+        "overlay": overlay})
     db.commit()
     return result
