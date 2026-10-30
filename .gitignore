@@ -12,3 +12,6 @@ __pycache__/
 .ruff_cache/
 storage/
 .DS_Store
+
+# Validation test set (rebuild with: cd server && uv run python -m scripts.validate ...)
+server/validation_data/

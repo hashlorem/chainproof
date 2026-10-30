@@ -36,9 +36,12 @@ def analyze(img: Image.Image) -> dict:
     heatmap = Image.fromarray(np.stack([heat, (heat * 0.6).astype(np.uint8), 255 - heat], axis=2))
 
     findings = []
+    # Informational only. Validation (docs/validation) found ELA flags about 2% of edits while firing on 6-11% of photos
+    # shared through WhatsApp or Facebook or resized, so it must not push the verdict. The heatmap stays as a visual aid.
     if 0.002 < outlier_ratio < 0.25:
-        sev = "medium" if outlier_ratio > 0.01 else "low"
-        findings.append(finding(sev, "Uneven compression", f"{outlier_ratio:.1%} of the image compresses very differently from the rest. Look at the bright areas in the heatmap."))
+        findings.append(finding("info", "Uneven compression (visual aid)",
+                                f"{outlier_ratio:.1%} of the image compresses differently from the rest. Look at the bright areas in the "
+                                "heatmap, but don't rely on this alone: it often appears in untouched photos that were shared or resized."))
     return {
         "mean_error": round(float(diff.mean()), 3),
         "outlier_ratio": round(outlier_ratio, 4),

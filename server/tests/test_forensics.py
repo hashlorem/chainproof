@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -43,18 +44,63 @@ def original() -> bytes:
     return jpeg(scene())
 
 
+PHOTOS = Path(__file__).parent / "fixtures" / "vision"  # real phone photos, CC BY-SA 4.0 (see ATTRIBUTION.md)
+
+
+@pytest.fixture(scope="module")
+def photo() -> Image.Image:
+    return Image.open(PHOTOS / "D10_I_nat_0090.jpg").convert("RGB")
+
+
 def test_clean_image_has_no_clone(original):
     assert copymove.analyze(open_rgb(original))["regions"] == []
 
 
-def test_cloned_area_is_found(original):
-    img = open_rgb(original)
-    img.paste(img.crop((60, 60, 200, 200)), (380, 250))
+def test_clean_photo_has_no_clone(photo):
+    assert copymove.analyze(open_rgb(jpeg(photo)))["regions"] == []
+
+
+def test_cloned_area_is_found(photo):
+    img = photo.copy()
+    img.paste(img.crop((100, 450, 300, 650)), (650, 120))
     result = copymove.analyze(open_rgb(jpeg(img)))
     assert result["regions"], result["pairs"]
-    x0, y0, x1, y1 = result["regions"][0]["copy_box"]
-    assert 370 <= x0 and x1 <= 530 and 240 <= y0 and y1 <= 400  # inside the pasted area (380..520, 250..390)
+    boxes = [result["regions"][0]["copy_box"], result["regions"][0]["source_box"]]
+    assert any(640 <= x0 and x1 <= 860 and 110 <= y0 and y1 <= 330 for x0, y0, x1, y1 in boxes)  # pasted at 650..850, 120..320
     assert result["overlay_png"]
+
+
+def test_large_object_duplicated_next_to_itself_is_found(photo):
+    # The bouquet case: a big region copied by less than its own size, so source and copy overlap.
+    img = photo.copy()
+    img.paste(img.crop((80, 380, 480, 700)), (230, 300))
+    result = copymove.analyze(open_rgb(jpeg(img)))
+    assert result["regions"] and result["findings"][0]["severity"] == "high", result["pairs"]
+
+
+@pytest.mark.parametrize("scale,angle", [(0.6, 0), (1.4, 0), (1.0, 20), (0.8, -15)])
+def test_resized_or_rotated_clone_is_found(photo, scale, angle):
+    img = photo.copy()
+    patch = img.crop((100, 450, 300, 650))
+    patch = patch.resize((int(200 * scale), int(200 * scale)), Image.LANCZOS).rotate(angle, resample=Image.BICUBIC)
+    img.paste(patch, (620, 100))
+    result = copymove.analyze(open_rgb(jpeg(img)))
+    assert result["regions"], result["pairs"]
+    region = result["regions"][0]
+    assert abs(region["scale"] - scale) < 0.1 or abs(1 / region["scale"] - scale) < 0.1, region
+    assert abs(abs(region["angle"]) - abs(angle)) < 5, region
+
+
+def test_periodic_pattern_is_not_a_clone():
+    # Stair steps, windows, railings: the same shape repeats at a fixed spacing, so it also matches at twice it.
+    img = scene(5)
+    d = ImageDraw.Draw(img)
+    for i in range(6):
+        x = 40 + i * 95
+        d.rectangle([x, 120, x + 60, 360], outline=(20, 20, 20), width=4)
+        d.line([x, 240, x + 60, 240], fill=(20, 20, 20), width=3)
+        d.ellipse([x + 22, 160, x + 38, 176], fill=(200, 30, 30))
+    assert copymove.analyze(open_rgb(jpeg(img)))["regions"] == []
 
 
 def test_repeated_text_is_not_a_clone():
@@ -83,10 +129,10 @@ def test_editing_software_in_exif():
     assert any(f["title"] == "Edited with image software" for f in report["findings"])
 
 
-def test_verdicts(original):
+def test_verdicts(original, photo):
     assert run_all(original, "image/jpeg", provenance_verified=True)["verdict"] == "verified_capture"
-    img = open_rgb(original)
-    img.paste(img.crop((60, 60, 200, 200)), (380, 250))
+    img = photo.copy()
+    img.paste(img.crop((100, 450, 300, 650)), (650, 120))
     assert run_all(jpeg(img), "image/jpeg")["verdict"] == "likely_manipulated"
 
 
