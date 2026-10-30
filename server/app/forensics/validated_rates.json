@@ -1,6 +1,6 @@
 {
- "validated_at": "2026-10-30T13:03:07Z",
- "commit": "756c0362f040",
+ "validated_at": "2026-10-30T17:13:29Z",
+ "commit": "cd8c0e18a34b",
  "test_set": "5c167bb32423dd82",
  "checks": {
   "clone": {
@@ -542,6 +542,132 @@
      ]
     }
    }
+  }
+ },
+ "history": {
+  "camera": {
+   "label": "Camera original",
+   "recognised": {
+    "k": 105,
+    "n": 105,
+    "rate": 1.0,
+    "ci95": [
+     0.9647,
+     1.0
+    ]
+   },
+   "wrongly_given": {
+    "k": 0,
+    "n": 1050,
+    "rate": 0.0,
+    "ci95": [
+     0.0,
+     0.0036
+    ]
+   }
+  },
+  "facebook": {
+   "label": "Passed through Facebook",
+   "recognised": {
+    "k": 105,
+    "n": 105,
+    "rate": 1.0,
+    "ci95": [
+     0.9647,
+     1.0
+    ]
+   },
+   "wrongly_given": {
+    "k": 0,
+    "n": 1050,
+    "rate": 0.0,
+    "ci95": [
+     0.0,
+     0.0036
+    ]
+   }
+  },
+  "whatsapp": {
+   "label": "Consistent with WhatsApp",
+   "recognised": {
+    "k": 104,
+    "n": 105,
+    "rate": 0.9905,
+    "ci95": [
+     0.948,
+     0.9983
+    ]
+   },
+   "wrongly_given": {
+    "k": 14,
+    "n": 1050,
+    "rate": 0.0133,
+    "ci95": [
+     0.008,
+     0.0223
+    ]
+   }
+  },
+  "resaved_with_camera_data": {
+   "label": "Re-saved, camera data copied",
+   "recognised": {
+    "k": 333,
+    "n": 333,
+    "rate": 1.0,
+    "ci95": [
+     0.9886,
+     1.0
+    ]
+   },
+   "wrongly_given": {
+    "k": 0,
+    "n": 822,
+    "rate": 0.0,
+    "ci95": [
+     0.0,
+     0.0047
+    ]
+   }
+  }
+ },
+ "matching": {
+  "copies": {
+   "k": 1049,
+   "n": 1050,
+   "rate": 0.999,
+   "ci95": [
+    0.9946,
+    0.9998
+   ]
+  },
+  "unrelated": {
+   "k": 0,
+   "n": 10920,
+   "rate": 0.0,
+   "ci95": [
+    0.0,
+    0.0004
+   ]
+  }
+ },
+ "difference": {
+  "false_change": {
+   "k": 0,
+   "n": 420,
+   "rate": 0.0,
+   "ci95": [
+    0.0,
+    0.0091
+   ]
+  },
+  "found": {
+   "k": 522,
+   "n": 630,
+   "rate": 0.8286,
+   "ci95": [
+    0.7972,
+    0.856
+   ]
   }
  }
 }
