@@ -184,7 +184,7 @@ Latest results (1,155 images; full detail and 95% confidence intervals in the re
 
 The full report, with 95% confidence intervals, results by edit type and by recompression, a held-out check and the
 limitations, is in [`docs/validation/VALIDATION.md`](docs/validation/VALIDATION.md). To reproduce it (about 1.3 GB of
-test images, around 7 minutes on 8 cores):
+test images, around 10 minutes on 8 cores):
 
 ```bash
 cd server
