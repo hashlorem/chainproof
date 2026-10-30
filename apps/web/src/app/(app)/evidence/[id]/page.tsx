@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { AuthedImage } from "@/components/AuthedImage";
+import { ExaminationPanel } from "@/components/ExaminationPanel";
 import { ForensicsView } from "@/components/ForensicsView";
 import { MapView } from "@/components/MapView";
 import { Button, Card, ErrorBox, Field, Hash, Loading, Pill } from "@/components/ui";
@@ -146,12 +147,14 @@ export default function EvidencePage() {
             />
           ) : (
             <p className="text-sm text-muted">
-              Not analysed yet. The analysis checks metadata, error levels (ELA), cloned areas and Content Credentials.
+              Not analysed yet. The analysis checks metadata, cloned areas (including resized or rotated copies), Content Credentials, and shows an error-level heatmap.
               {!canWrite && " An investigator or supervisor can run it."}
             </p>
           )}
         </Card>
       )}
+
+      <ExaminationPanel evidenceId={id} canWrite={canWrite} userId={user?.id} analysed={!!e.forensics} />
     </div>
   );
 }

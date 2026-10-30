@@ -19,6 +19,9 @@ const ACTION_LABEL: Record<string, string> = {
   TRANSFERRED: "Custody transferred",
   EXPORTED: "Report exported",
   VERIFIED: "Integrity verified",
+  NOTED: "Examiner note",
+  CONCLUDED: "Examiner conclusion",
+  REVIEWED: "Technical review",
 };
 
 function describe(e: CustodyEntry, users: Map<string, User>): string | null {
@@ -33,6 +36,10 @@ function describe(e: CustodyEntry, users: Map<string, User>): string | null {
     case "ANALYZED": return `Verdict: ${String(d.verdict).replaceAll("_", " ")}`;
     case "TRANSFERRED": return `To ${users.get(String(d.to_user_id))?.name ?? "?"} — ${d.reason}`;
     case "VERIFIED": return d.ok ? "All checks passed" : "Some checks failed";
+    case "NOTED": return String(d.text).length > 90 ? `${String(d.text).slice(0, 90)}…` : String(d.text);
+    case "CONCLUDED": return d.level === "none" ? "No support either way" : `${String(d.level).replaceAll("_", " ")} support for: ${d.h1}`;
+    case "REVIEWED": return d.agrees ? "Agrees with the conclusion" : "Does not agree with the conclusion";
+    case "EXPORTED": return d.kind === "examination" ? "Examination report" : "Case report";
     default: return null;
   }
 }

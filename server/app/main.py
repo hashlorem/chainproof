@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core.signing import server_key
 from app.db import init_db
-from app.routers import auth, cases, devices, evidence, forensics, reports, verify
+from app.routers import auth, cases, devices, evidence, examination, forensics, reports, verify
 
 
 @asynccontextmanager
@@ -37,7 +37,7 @@ async def security_headers(request, call_next):
     return response
 
 
-for r in (auth, devices, cases, evidence, forensics, reports, verify):
+for r in (auth, devices, cases, evidence, examination, forensics, reports, verify):
     app.include_router(r.router)
 
 

@@ -40,6 +40,13 @@ export function ForensicsView({ report, original, ela, copymove }: {
       <div className={cx("border-2 p-4", tone === "ok" ? "border-ok bg-surface" : tone === "warn" ? "border-warn bg-surface" : "border-bad bg-bad-bg")}>
         <div className={cx("heading text-2xl", tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : "text-bad")}>{report.label}</div>
         <p className="text-sm text-muted">{report.disclaimer}</p>
+        {report.validation !== undefined && (
+          <p className="mt-1 text-xs text-muted">
+            {report.validation
+              ? `Error rates measured ${report.validation.validated_at.slice(0, 10)} on a labelled test set of real phone photos (docs/validation).`
+              : "These checks have not been validated yet; their error rates are unknown."}
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -60,7 +67,7 @@ export function ForensicsView({ report, original, ela, copymove }: {
             ) : null}
           </div>
           <p className="text-xs text-muted">
-            {current?.id === "ela" && "Bright areas changed most when re-compressed. An area that is much brighter than similar surroundings may have been pasted in or edited."}
+            {current?.id === "ela" && "Visual aid only. Bright areas changed most when re-compressed; a patch much brighter than similar surroundings may be pasted in. Validation found this unreliable on its own, so it doesn't affect the verdict."}
             {current?.id === "clones" && "Yellow box = source, red box = copy. Green lines join matching points."}
           </p>
         </div>
@@ -78,6 +85,11 @@ export function ForensicsView({ report, original, ela, copymove }: {
                       <Pill tone={SEVERITY_TONE[f.severity]}>{f.severity}</Pill> {f.title}
                     </div>
                     <p className="mt-1 text-sm text-muted">{f.detail}</p>
+                    {f.validation !== undefined && (
+                      <p className="mt-1.5 border-t border-border pt-1.5 text-xs">
+                        <span className="eyebrow">How reliable</span> {f.validation ?? "Not validated"}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>

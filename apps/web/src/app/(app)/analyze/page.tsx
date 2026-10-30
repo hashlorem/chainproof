@@ -1,18 +1,46 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Dropzone } from "@/components/Dropzone";
 import { ForensicsView } from "@/components/ForensicsView";
-import { Button, Card, ErrorBox, Loading } from "@/components/ui";
-import { api, type ForensicReport } from "@/lib/api";
+import { Button, Card, ErrorBox, Loading, inputClass } from "@/components/ui";
+import { api, type Case, type Evidence, type ForensicReport } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { useApi } from "@/lib/useApi";
 
 export default function AnalyzePage() {
   const [report, setReport] = useState<ForensicReport | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [caseId, setCaseId] = useState("");
+  const router = useRouter();
+  const { user } = useAuth();
+  const canWrite = user?.role !== "auditor";
+  const { data: cases } = useApi<Case[]>(canWrite ? "/cases" : null);
+  const openCases = (cases ?? []).filter((c) => c.status === "open");
+
+  /** Files the photo into a case as imported evidence (recorded in custody) and opens its examination. */
+  async function openExamination() {
+    if (!file || !caseId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const ev = await api.post<Evidence>(`/cases/${caseId}/evidence`, fd);
+      await api.post(`/evidence/${ev.id}/analyze`);
+      router.push(`/evidence/${ev.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  }
 
   async function analyze(file: File) {
+    setFile(file);
     setBusy(true);
     setError(null);
     setReport(null);
@@ -50,13 +78,29 @@ export default function AnalyzePage() {
       {busy && <Loading label="Analysing: metadata, error levels, cloned areas, Content Credentials…" />}
       {error && <ErrorBox>{error}</ErrorBox>}
       {report && (
-        <Card title="Result" actions={<Button variant="secondary" onClick={() => { setReport(null); setPreview(null); }}>Check another</Button>}>
+        <Card title="Result" actions={<Button variant="secondary" onClick={() => { setReport(null); setPreview(null); setFile(null); }}>Check another</Button>}>
           <ForensicsView
             report={report}
             original={preview ? { kind: "b64", data: preview } : null}
             ela={report.checks.ela.heatmap_png ? { kind: "b64", data: report.checks.ela.heatmap_png } : null}
             copymove={report.checks.copy_move.overlay_png ? { kind: "b64", data: report.checks.copy_move.overlay_png } : null}
           />
+          {canWrite && (
+            <div className="mt-6 space-y-2 border-t-2 border-rule pt-4">
+              <h3 className="heading text-lg">Investigate this photo properly</h3>
+              <p className="text-sm text-muted">
+                A quick check isn&apos;t recorded anywhere. To keep notes, record a conclusion, get it reviewed and export a report,
+                file the photo into a case. Its hash is recorded on arrival and every step goes into the chain of custody.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <select className={`${inputClass} w-auto min-w-64`} value={caseId} onChange={(e) => setCaseId(e.target.value)} aria-label="Case">
+                  <option value="">Choose an open case…</option>
+                  {openCases.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                </select>
+                <Button onClick={openExamination} disabled={!caseId || !file} busy={busy}>Open an examination</Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
     </div>

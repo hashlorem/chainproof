@@ -26,16 +26,32 @@ export interface Verification {
   chain: { ok: boolean; length: number; broken_at: number | null; reason: string | null };
   evidence: EvidenceCheck[];
 }
-export interface Finding { severity: "info" | "low" | "medium" | "high"; title: string; detail: string; check: string }
+export interface Finding {
+  severity: "info" | "low" | "medium" | "high"; title: string; detail: string; check: string;
+  /** How often this check is wrong, measured in docs/validation. Missing if the check has not been validated. */
+  validation?: string | null;
+}
 export interface ForensicReport {
   verdict: "verified_capture" | "ai_generated" | "likely_manipulated" | "suspicious" | "no_signs";
   label: string; score: number; findings: Finding[]; disclaimer: string;
+  validation?: { validated_at: string; commit: string; test_set: string; checks: Record<string, string | null> } | null;
   checks: {
     metadata: { format: string; width: number; height: number; tags: Record<string, string>; gps: { lat: number; lon: number } | null };
     ela: { mean_error: number; outlier_ratio: number; heatmap_png?: string; has_ela_image?: boolean };
     copy_move: { pairs: number; regions: unknown[]; overlay_png?: string | null; has_copymove_image?: boolean };
     c2pa: { present: boolean; generator?: string; issuer?: string; validation_state?: string; ai_generated?: boolean };
   };
+}
+export type ConclusionLevel = "none" | "limited" | "moderate" | "strong" | "very_strong";
+export interface Examination {
+  question: string | null;
+  notes: { seq: number; ts: string; by: string; text: string }[];
+  conclusion: {
+    seq: number; ts: string; by: string; by_id: string; question: string; h1: string; h2: string;
+    level: string; level_key: ConclusionLevel; rationale: string; limitations: string;
+  } | null;
+  review: { seq: number; ts: string; by: string; agrees: boolean; comment: string } | null;
+  levels: Record<ConclusionLevel, string>;
 }
 export type CustodyResponse = { server_public_key_hex: string; entries: CustodyEntry[] };
 

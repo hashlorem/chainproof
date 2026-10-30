@@ -1,0 +1,170 @@
+"""
+Image examination report for one file, in the order of the SWGDE image-authentication workflow:
+provenance and acquisition → file structure → global analysis → local analysis → AI content → findings →
+examiner conclusion → technical review → method and limitations.
+
+Used by the command-line examiner (scripts/examine.py) and by examinations in the web app.
+"""
+
+import io
+
+from PIL import Image as PILImage
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table
+
+from app.reports.pdf import BAD, INK, MONO, NA, OK, SMALL, _table, styles
+
+SEVERITY_COLOR = {"high": BAD, "medium": NA, "low": NA, "info": INK}
+
+
+def _img(data: bytes | None, width_mm: float) -> Image | Paragraph:
+    if not data:
+        return Paragraph("—", SMALL)
+    img = PILImage.open(io.BytesIO(data)).convert("RGB")
+    img.thumbnail((900, 900))
+    buf = io.BytesIO()
+    img.save(buf, "JPEG", quality=85)
+    buf.seek(0)
+    return Image(buf, width=width_mm * mm, height=width_mm * mm * img.height / img.width)
+
+
+def _ts(ts: str | None) -> str:
+    """2026-10-30T12:29:43.114174Z -> 2026-10-30 12:29:43 UTC"""
+    return f"{ts[:19].replace('T', ' ')} UTC" if ts else "—"
+
+
+def _p(text: str, style=SMALL) -> Paragraph:
+    return Paragraph(str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"), style)
+
+
+def build_examination(subject: dict, report: dict, images: dict, method: dict, examination: dict | None = None) -> bytes:
+    """
+    subject: filename, sha256, size, mime, source, acquired_at, and optionally sha256_after (re-hash after analysis)
+             and provenance (text).
+    report: the output of run_all() with images removed (split_images).
+    images: {"original": bytes, "ela": png bytes, "copymove": png bytes}; any can be missing.
+    method: tool, commit, versions, examined_at, examiner.
+    examination: {"question", "notes": [...], "conclusion": {...}, "review": {...}} from the web app, or None.
+    """
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=15 * mm, rightMargin=15 * mm, topMargin=15 * mm, bottomMargin=15 * mm,
+                            title=f"Image examination — {subject['filename']}", author="ChainProof")
+    exam = examination or {}
+    checks = report["checks"]
+    h2, body = styles["Heading2"], styles["BodyText"]
+    story = [
+        Paragraph("Image Examination Report", styles["Title"]),
+        _table([
+            ["Item", _p(subject["filename"]), "Examined", _p(_ts(method["examined_at"]))],
+            ["Question", _p(exam.get("question") or "Is this image an unaltered record of what the camera captured?"), "Examiner",
+             _p(method.get("examiner") or "not recorded")],
+        ], [22 * mm, 88 * mm, 22 * mm, 48 * mm], header=False),
+        Spacer(1, 3 * mm),
+    ]
+
+    # 1. Provenance and acquisition
+    after = subject.get("sha256_after")
+    integrity = ("unchanged by the examination" if after == subject["sha256"] else "CHANGED during examination") if after else "not re-checked"
+    story += [Paragraph("1. Provenance and acquisition", h2), _table([
+        ["Source", _p(subject.get("source") or "not recorded")],
+        ["Provenance", _p(subject.get("provenance") or "Unknown origin. No capture signature; treat as an unverified copy.")],
+        ["SHA-256 at intake", _p(subject["sha256"], MONO)],
+        ["SHA-256 after analysis", _p(f"{after or '—'} ({integrity})", MONO)],
+        ["Size / type", f"{subject['size']:,} bytes · {subject['mime']}"],
+        ["Received", _p(subject.get("acquired_at") or "not recorded")],
+    ], [38 * mm, 142 * mm], header=False), Spacer(1, 3 * mm)]
+
+    # 2. File structure
+    meta, c2pa = checks["metadata"], checks["c2pa"]
+    tags = ", ".join(f"{k}: {v}" for k, v in meta.get("tags", {}).items()) or "none"
+    story += [Paragraph("2. File structure", h2), _table([
+        ["Format", f"{meta.get('format')} · {meta.get('width')} × {meta.get('height')} px"],
+        ["EXIF", _p(tags)],
+        ["GPS", _p(f"{meta['gps']['lat']}, {meta['gps']['lon']}" if meta.get("gps") else "none")],
+        ["Content Credentials (C2PA)", _p(f"present · {c2pa.get('generator') or 'unknown tool'} · signed by {c2pa.get('issuer') or 'unknown'} · "
+                                          f"validation: {c2pa.get('validation_state') or 'n/a'}" if c2pa.get("present") else "none")],
+    ], [38 * mm, 142 * mm], header=False), Spacer(1, 3 * mm)]
+
+    # 3–4. Global and local analysis, side by side with the image
+    ela, cm = checks["ela"], checks["copy_move"]
+    regions = "; ".join(f"{r['matches']} points, copy at {r['copy_box']}" for r in cm.get("regions", [])) or "no cloned area found"
+    story += [KeepTogether([
+        Paragraph("3. Global analysis (error levels) and 4. Local analysis (cloned areas)", h2),
+        Table([[_img(images.get("original"), 56), _img(images.get("ela"), 56), _img(images.get("copymove"), 56)],
+               [_p("Image as received"), _p(f"ELA heatmap · mean error {ela.get('mean_error')}, outliers {ela.get('outlier_ratio', 0):.2%}"),
+                _p(f"Clone overlay · {regions}")]],
+              colWidths=[60 * mm] * 3, style=[("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]),
+        Spacer(1, 3 * mm),
+    ])]
+
+    # 5. AI-generated content
+    ai_note = ("Content Credentials declare AI generation." if c2pa.get("ai_generated")
+               else "No AI declaration found. Absence is not evidence of a real photo: credentials are easily stripped, "
+                    "and learned AI detectors were not used because none passed validation.")
+    story += [Paragraph("5. AI-generated content", h2), _p(ai_note, body), Spacer(1, 3 * mm)]
+
+    # 6. Findings with validated error rates
+    rows = [["Severity", "Check", "Finding", "How reliable is this check?"]]
+    for f in report["findings"]:
+        color = SEVERITY_COLOR.get(f["severity"], INK).hexval()
+        rows.append([Paragraph(f'<font color="{color}"><b>{f["severity"].upper()}</b></font>', SMALL), _p(f["check"]),
+                     _p(f"{f['title']}. {f['detail']}"), _p(f.get("validation") or "Not validated")])
+    story += [Paragraph("6. Findings", h2), _table(rows, [18 * mm, 20 * mm, 88 * mm, 54 * mm]),
+              _p(f"Automated summary: {report['label']} (score {report['score']}). {report['disclaimer']}"), Spacer(1, 3 * mm)]
+
+    # 7. Notes, 8. conclusion, 9. review
+    notes = exam.get("notes") or []
+    if notes:
+        story += [Paragraph("7. Examiner notes", h2),
+                  _table([["Time (UTC)", "By", "Note"]] + [[_p(_ts(n["ts"])), _p(n["by"]), _p(n["text"])] for n in notes], [32 * mm, 30 * mm, 118 * mm]),
+                  Spacer(1, 3 * mm)]
+    c = exam.get("conclusion")
+    story.append(Paragraph("8. Examiner conclusion", h2))
+    if c:
+        story += [_table([
+            ["Hypotheses", _p(f"H1: {c['h1']}  ·  H2: {c['h2']}")],
+            ["Conclusion", Paragraph("<b>The findings do not help decide between H1 and H2.</b>" if c.get("level_key") == "none"
+                                     else f"<b>The findings provide {c['level']} for H1 rather than H2.</b>", SMALL)],
+            ["Reasoning", _p(c["rationale"])],
+            ["Limitations", _p(c["limitations"])],
+            ["By", _p(f"{c['by']} · {_ts(c['ts'])}")],
+        ], [38 * mm, 142 * mm], header=False)]
+    else:
+        story.append(_p("No examiner conclusion recorded. The findings above are automated indicators only and are not an opinion.", body))
+    story.append(Spacer(1, 3 * mm))
+
+    r = exam.get("review")
+    story.append(Paragraph("9. Technical review", h2))
+    if r:
+        color = (OK if r["agrees"] else BAD).hexval()
+        story.append(_table([
+            ["Reviewer", _p(f"{r['by']} · {_ts(r['ts'])}")],
+            ["Outcome", Paragraph(f'<font color="{color}"><b>{"Agrees with the conclusion" if r["agrees"] else "Does not agree"}</b></font>', SMALL)],
+            ["Comment", _p(r["comment"])],
+        ], [38 * mm, 142 * mm], header=False))
+    else:
+        story.append(_p("Not reviewed. A second examiner should check method and wording before this report is relied on.", body))
+
+    # 10. Method and limitations
+    validation = report.get("validation")
+    story += [Spacer(1, 3 * mm), Paragraph("10. Method and limitations", h2), _table([
+        ["Tool", _p(f"{method['tool']} · commit {method.get('commit', 'unknown')}")],
+        ["Libraries", _p(method.get("versions", ""))],
+        ["Validation", _p(f"Error rates measured {_ts(validation['validated_at'])} on test set {validation['test_set']} (commit {validation['commit']}). "
+                          "See docs/validation/VALIDATION.md." if validation else "These checks have not been validated; treat all findings as unquantified.")],
+        ["Limitations", _p("Automated checks give indicators, not proof. A clean result does not show an image is authentic. "
+                           "Recompression, resizing and messaging apps weaken or erase traces. Identical real objects can look like clones. "
+                           "Analysis runs on a copy capped at 2048 px; the original was not modified.")],
+    ], [38 * mm, 142 * mm], header=False)]
+
+    def footer(canvas, doc_):
+        canvas.saveState()
+        canvas.setFont("Helvetica", 7)
+        canvas.setFillColor(INK)
+        canvas.drawString(15 * mm, 8 * mm, f"ChainProof image examination · {subject['sha256'][:16]}… · {_ts(method['examined_at'])}")
+        canvas.drawRightString(A4[0] - 15 * mm, 8 * mm, f"Page {doc_.page}")
+        canvas.restoreState()
+
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    return buf.getvalue()
