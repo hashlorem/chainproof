@@ -15,6 +15,9 @@ MIN_DISTANCE = 30  # px: ignore matches between neighbouring points
 MIN_CLUSTER = 8    # pairs sharing one shift needed to call it a clone. Lower finds more clones, but repeating
                    # patterns in real photos (bricks, tiles, windows) can then cause false alarms.
 SHIFT_BIN = 6      # px tolerance when grouping shifts
+MIN_SIDE = 0.03    # a copied area must span at least 3% of the image's short side in both directions. Points
+                   # on one thin line (a row of printed letters) or a tiny spot are repeating texture, not an object.
+STRONG = 20        # pairs needed for "Cloned area detected"; fewer gives "Possible cloned area"
 
 
 def analyze(img: Image.Image) -> dict:
@@ -41,6 +44,7 @@ def analyze(img: Image.Image) -> dict:
             a, b = b, a
         pairs.append((a, b))
 
+    min_side = MIN_SIDE * min(img.size)
     bins = [tuple(np.round((b - a) / SHIFT_BIN).astype(int)) for a, b in pairs]
     counts = Counter(bins)
 
@@ -54,9 +58,9 @@ def analyze(img: Image.Image) -> dict:
             continue
         members = {s for s in counts if near(s, center) and s not in used}
         n = sum(counts[s] for s in members)
-        if n >= MIN_CLUSTER:
+        used |= members
+        if n >= MIN_CLUSTER and _spans_object(pairs, bins, members, min_side):
             clusters.append((members, n))
-            used |= members
         if len(clusters) == 3:
             break
     if not clusters:
@@ -78,11 +82,19 @@ def analyze(img: Image.Image) -> dict:
                         "copy_box": [*map(int, dst.min(0)), *map(int, dst.max(0))]})
 
     total = sum(r["matches"] for r in regions)
-    return {
-        "pairs": len(pairs),
-        "regions": regions,
-        "overlay_png": png_b64(overlay),
-        # Many points sharing one exact shift almost never happens by chance, so this is a strong signal.
-        "findings": [finding("high", "Cloned area detected",
-                             f"{total} matching points were copied to another place in the image (yellow = source, red = copy).")],
-    }
+    # Many points sharing one exact shift almost never happens by chance, so a big cluster is a strong signal.
+    # A small one can still be identical real objects (two copies of the same product), so it stays a "possible".
+    if max(r["matches"] for r in regions) >= STRONG:
+        found = finding("high", "Cloned area detected",
+                        f"{total} matching points were copied to another place in the image (yellow = source, red = copy).")
+    else:
+        found = finding("medium", "Possible cloned area",
+                        f"{total} points repeat with the same shift (yellow = source, red = copy). This can be a copied "
+                        "object, or two identical real objects.")
+    return {"pairs": len(pairs), "regions": regions, "overlay_png": png_b64(overlay), "findings": [found]}
+
+
+def _spans_object(pairs, bins, members, min_side) -> bool:
+    src = np.array([a for (a, _), s in zip(pairs, bins) if s in members])
+    w, h = src.max(axis=0) - src.min(axis=0)
+    return min(w, h) >= min_side

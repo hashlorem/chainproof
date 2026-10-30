@@ -57,6 +57,13 @@ def test_cloned_area_is_found(original):
     assert result["overlay_png"]
 
 
+def test_repeated_text_is_not_a_clone():
+    # Printed text repeats the same letters along one line. Those matches share a shift but cover no area.
+    img = scene(4)
+    ImageDraw.Draw(img).text((20, 300), "THE WAREHOUSE DOOR WAS FORCED AT NIGHT " * 2, fill=(10, 10, 10))
+    assert copymove.analyze(open_rgb(jpeg(img)))["regions"] == []
+
+
 def test_ela_flags_a_spliced_patch():
     # Background has been through JPEG at q=90 twice, so re-saving barely changes it.
     base = Image.open(io.BytesIO(jpeg(Image.open(io.BytesIO(jpeg(scene(2), 90))), 90))).convert("RGB")
