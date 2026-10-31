@@ -8,7 +8,7 @@ from functools import lru_cache
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -95,6 +95,40 @@ class LoginLimiter:
 
 
 login_limiter = LoginLimiter()
+
+
+class RateLimiter:
+    """At most `limit` requests per key in any 60 seconds. In memory, like LoginLimiter."""
+
+    def __init__(self):
+        self._hits: dict[str, deque[float]] = defaultdict(deque)
+        self._lock = threading.Lock()
+
+    def hit(self, key: str, limit: int) -> int:
+        """Counts a request. Returns 0 if allowed, else seconds until the next one is."""
+        now = time.monotonic()
+        with self._lock:
+            q = self._hits[key]
+            while q and q[0] < now - 60:
+                q.popleft()
+            if len(q) >= limit:
+                return int(q[0] + 60 - now) + 1
+            q.append(now)
+            return 0
+
+    def reset(self) -> None:
+        with self._lock:
+            self._hits.clear()
+
+
+public_limiter = RateLimiter()
+
+
+def client_ip(request: Request) -> str:
+    """The visitor's address. Behind the demo tunnel, Cloudflare's header; otherwise the TCP peer."""
+    if settings.trust_cf_connecting_ip and (cf := request.headers.get("cf-connecting-ip")):
+        return cf.strip()
+    return request.client.host if request.client else "?"
 
 
 def create_token(user: User) -> str:

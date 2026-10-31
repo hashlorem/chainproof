@@ -50,7 +50,8 @@ def analyze(data: bytes) -> dict:
         if orig and modified and orig != modified:
             findings.append(finding("medium", "Modified after it was taken", f"Taken {orig}, file last changed {modified}."))
     if any(a in software or a in xmp_text for a in AI_TOOLS) or "trainedalgorithmicmedia" in xmp_text:
-        findings.append(finding("high", "AI generator named in metadata", "The file's metadata names an AI image generator."))
+        findings.append(finding("medium", "AI generator named in metadata",
+                                "The file's metadata names an AI image generator. Anyone can write this text into a real photo, so it is not proof."))
     if gps:
         findings.append(finding("info", "Location embedded", f"GPS {gps['lat']}, {gps['lon']}."))
 

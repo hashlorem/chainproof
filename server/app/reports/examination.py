@@ -104,8 +104,9 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     ])]
 
     # 5. AI-generated content
-    ai_note = ("Content Credentials declare AI generation." if c2pa.get("ai_generated")
-               else "No AI declaration found. Absence is not evidence of a real photo: credentials are easily stripped, "
+    ai_note = ("Content Credentials from a signer on the C2PA trust list declare AI generation." if c2pa.get("ai_generated") and c2pa.get("trusted")
+               else "Content Credentials claim AI generation, but the signer is not on the C2PA trust list, so the claim could be forged."
+               if c2pa.get("ai_generated") else "No AI declaration found. Absence is not evidence of a real photo: credentials are easily stripped, "
                     "and learned AI detectors were not used because none passed validation.")
     story += [Paragraph("5. AI-generated content", h2), _p(ai_note, body), Spacer(1, 3 * mm)]
 

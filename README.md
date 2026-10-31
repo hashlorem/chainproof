@@ -74,7 +74,7 @@ This runs the API and web app on this laptop and opens two free Cloudflare tunne
 
 - **Install first:** `brew install cloudflared`. No account is needed.
 - **Addresses change:** you get new ones every run.
-- **Passwords:** the app is public while the tunnel is open. Change the demo passwords first: click your name to change yours, and supervisors use **Users → Reset password** for the others. The script warns you if any account still uses `chainproof123`.
+- **Passwords:** the app is public while the tunnel is open. Change the demo passwords first: click your name to change yours, and supervisors use **Users → Reset password** for the others. The script refuses to start while any account still uses `chainproof123`.
 - **Video size:** Cloudflare's free tunnel rejects uploads over 100 MB, so phone videos stop at 90 MB.
 
 ### Installable Android app and updates
@@ -113,7 +113,7 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 68 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
+cd server && uv run pytest                # 77 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
                                           #   examinations, and a validation regression gate on six real photos
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
 
@@ -180,7 +180,7 @@ Latest results (1,155 images; full detail and 95% confidence intervals in the re
 | Copies traced back to their stored original | **99.9%** (1,049 of 1,050); unrelated photos wrongly matched: **0 of 10,920** pairs |
 | Difference map against the original: changes reported on innocent copies / edits outlined | **0 of 420** / **83%** (splices **95%**) |
 | File history: camera originals / Facebook / WhatsApp recognised | 100% / 100% / 99%; no re-saved file ever called a camera original (0 of 1,050) |
-| AI-generated images | only via Content Credentials; no learned detector passed testing |
+| AI-generated images | only via Content Credentials from a signer on the official C2PA trust list (ChatGPT's are); a self-signed claim or an AI name in the metadata is only a warning; no learned detector passed testing |
 
 The full report, with 95% confidence intervals, results by edit type and by recompression, a held-out check and the
 limitations, is in [`docs/validation/VALIDATION.md`](docs/validation/VALIDATION.md). To reproduce it (about 1.3 GB of

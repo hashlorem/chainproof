@@ -13,6 +13,16 @@ account's device, not the scene (TM-002). During public demos, unchanged demo pa
 access (TM-003). The forensics layer can be steered: fake AI metadata makes a real photo read "AI-generated" (TM-011).
 Demo-day availability is fragile: one person can lock everyone out through the tunnel (TM-004).
 
+**Status, 31 Oct 2026 (branch `phase2`):** the four quick fixes are in, each with a test. The tables below describe the
+code as it was when this model was written; read them together with this list.
+
+| Threat | Now | Tested in |
+|---|---|---|
+| TM-003 | `demo.sh` refuses to start while any account uses `chainproof123`, and also stops if the check itself fails | gate run by hand; `scripts/check_demo_passwords.py` exits 3 |
+| TM-004 | Under `demo.sh`, login limits use Cloudflare's `CF-Connecting-IP` (`CHAINPROOF_TRUST_CF_CONNECTING_IP`, off by default because without Cloudflare anyone could send it); a supervisor's password reset lifts that account's lockout | `tests/test_security.py` |
+| TM-005 | `POST /public/verify` refused over 210 MB before parsing (Content-Length and a running byte count), hashed in 1 MB chunks; both public verify routes limited to 30 per minute per visitor | `tests/test_security.py` |
+| TM-011 | *AI-generated* only when a C2PA manifest validates **and** its signer is on the official C2PA trust list (`server/app/forensics/c2pa_trust_list.pem`). A self-signed AI claim and an AI name in metadata are medium findings. ChatGPT's credentials still come out Trusted | `tests/test_forensics.py` (forges a self-signed credential); before the fix it read *AI-generated*, now *Suspicious* |
+
 ## Scope and assumptions
 
 **In scope:** the API (`server/app`), the web app (`apps/web`), the phone app's signing and key storage

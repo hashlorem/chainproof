@@ -1,19 +1,26 @@
 import hashlib
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import storage
 from app.core import tsa
 from app.core.chain import append_entry, load_chain, verify_entries
-from app.core.security import current_user
+from app.config import settings
+from app.core.security import client_ip, current_user, public_limiter
 from app.core.signing import server_public_key_hex, verify_manifest
 from app.db import get_db
 from app.models import Case, Device, Evidence, Report, User
 from app.routers.cases import get_case
 
 router = APIRouter(tags=["verify"])
+
+
+def public_rate_limit(request: Request) -> None:
+    """Public lookups need no account, so cap them per visitor (TM-005)."""
+    if wait := public_limiter.hit(client_ip(request), settings.public_verify_per_minute):
+        raise HTTPException(429, "Too many checks. Try again in a minute.", headers={"Retry-After": str(wait)})
 
 
 def check_evidence(db: Session, ev: Evidence) -> dict:
@@ -97,7 +104,7 @@ def public_lookup(db: Session, sha: str) -> dict:
     return {"sha256": sha, "found": True, "kind": "evidence", "matches": results}
 
 
-@router.get("/public/verify/{sha256}")
+@router.get("/public/verify/{sha256}", dependencies=[Depends(public_rate_limit)])
 def public_verify_hash(sha256: str, db: Session = Depends(get_db)):
     sha = sha256.lower()
     if len(sha) != 64 or any(c not in "0123456789abcdef" for c in sha):
@@ -105,7 +112,13 @@ def public_verify_hash(sha256: str, db: Session = Depends(get_db)):
     return public_lookup(db, sha)
 
 
-@router.post("/public/verify")
+@router.post("/public/verify", dependencies=[Depends(public_rate_limit)])
 async def public_verify_file(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Anyone holding a copy of the file can check it against the record. The file is hashed, never stored."""
-    return public_lookup(db, hashlib.sha256(await file.read()).hexdigest())
+    """
+    Anyone holding a copy of the file can check it against the record. The file is hashed in chunks, never stored.
+    The body size is capped before this runs (main.CapUploads); the web page hashes in the browser and uses the GET.
+    """
+    h = hashlib.sha256()
+    while chunk := await file.read(1 << 20):
+        h.update(chunk)
+    return public_lookup(db, h.hexdigest())

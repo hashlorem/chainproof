@@ -96,3 +96,60 @@ def test_change_and_reset_password(client, supervisor):
     assert client.post(f"/auth/users/{uid}/password", json={"new_password": "third-password"}, headers=h).status_code == 403
     assert client.post(f"/auth/users/{uid}/password", json={"new_password": "third-password"}, headers=supervisor["headers"]).status_code == 200
     assert client.post("/auth/login", json={"email": body["email"], "password": "third-password"}).status_code == 200
+
+
+def test_tunnel_visitors_are_told_apart_by_cloudflare_header(client, monkeypatch):
+    """Behind the demo tunnel every request comes from 127.0.0.1; one attacker must not lock out the room (TM-004)."""
+    monkeypatch.setattr(settings, "trust_cf_connecting_ip", True)
+    attacker = {"CF-Connecting-IP": "203.0.113.9"}
+    for i in range(settings.login_max_failures * 4):
+        client.post("/auth/login", json={"email": f"nobody{i}@test.dev", "password": "wrong"}, headers=attacker)
+    assert client.post("/auth/login", json={"email": "auditor@test.dev", "password": PASSWORD}, headers=attacker).status_code == 429
+    visitor = {"CF-Connecting-IP": "198.51.100.4"}
+    assert client.post("/auth/login", json={"email": "auditor@test.dev", "password": PASSWORD}, headers=visitor).status_code == 200
+
+
+def test_cloudflare_header_is_ignored_unless_enabled(client):
+    """Without the tunnel anyone could send the header, so by default it must not dodge the per-address limit."""
+    for i in range(settings.login_max_failures * 4):
+        client.post("/auth/login", json={"email": f"nobody{i}@test.dev", "password": "wrong"}, headers={"CF-Connecting-IP": f"203.0.113.{i}"})
+    assert client.post("/auth/login", json={"email": "auditor@test.dev", "password": PASSWORD}).status_code == 429
+
+
+def test_password_reset_lifts_lockout(client, supervisor):
+    for _ in range(settings.login_max_failures):
+        client.post("/auth/login", json={"email": "auditor@test.dev", "password": "wrong"})
+    assert client.post("/auth/login", json={"email": "auditor@test.dev", "password": PASSWORD}).status_code == 429
+    auditor = next(u for u in client.get("/auth/users", headers=supervisor["headers"]).json() if u["email"] == "auditor@test.dev")
+    r = client.post(f"/auth/users/{auditor['id']}/password", json={"new_password": PASSWORD}, headers=supervisor["headers"])
+    assert r.status_code == 200, r.text
+    assert client.post("/auth/login", json={"email": "auditor@test.dev", "password": PASSWORD}).status_code == 200
+
+
+def test_public_verify_upload_is_capped(client, monkeypatch):
+    monkeypatch.setattr(settings, "public_verify_max_mb", 1)
+    assert client.post("/public/verify", files={"file": ("x.jpg", b"small")}).status_code == 200
+    r = client.post("/public/verify", files={"file": ("x.jpg", b"0" * (1024 * 1024 + 1))})
+    assert r.status_code == 413
+    assert "1 MB" in r.json()["detail"]
+
+
+def test_public_verify_upload_cap_counts_bytes_without_content_length(client, monkeypatch):
+    monkeypatch.setattr(settings, "public_verify_max_mb", 1)
+    body = b"--b\r\nContent-Disposition: form-data; name=\"file\"; filename=\"x\"\r\n\r\n" + b"0" * (2 * 1024 * 1024) + b"\r\n--b--\r\n"
+    r = client.post("/public/verify", content=(body[i:i + 65536] for i in range(0, len(body), 65536)),
+                    headers={"Content-Type": "multipart/form-data; boundary=b"})
+    assert r.status_code == 413
+
+
+def test_public_lookups_are_rate_limited(client, monkeypatch):
+    from app.core.security import public_limiter
+
+    public_limiter.reset()
+    monkeypatch.setattr(settings, "public_verify_per_minute", 3)
+    for _ in range(3):
+        assert client.get(f"/public/verify/{'0' * 64}").status_code == 200
+    r = client.get(f"/public/verify/{'0' * 64}")
+    assert r.status_code == 429
+    assert int(r.headers["Retry-After"]) > 0
+    public_limiter.reset()
