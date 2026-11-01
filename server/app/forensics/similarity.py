@@ -23,6 +23,11 @@ SAME_SCENE = 40
 WORK_SIDE = 1024         # both images are compared at this size
 CHANGE_LEVEL = 28        # per-pixel difference (0-255, after smoothing) that counts as changed
 MIN_REGION = 0.0015      # changed regions smaller than this share of the image are compression noise
+# Thin marks (pen strokes, drawn lines) vanish in the pass above, so a second pass looks for them at a higher resolution.
+THIN_SIDE = 2048
+THIN_LEVEL = 40          # how far (0-255) a pixel must fall outside the original's range in its 5×5 neighbourhood
+THIN_LENGTH = 0.02       # a thin mark must be at least this long (share of the longer side) to count
+THIN_BORDER = 4          # pixels at the frame's edge that are ignored
 
 
 def phash(img: Image.Image) -> str:
@@ -89,9 +94,9 @@ def _fit(img: Image.Image, size: tuple[int, int]) -> np.ndarray:
     return np.asarray(img.convert("RGB").resize(size, Image.LANCZOS), dtype=np.float32)
 
 
-def _align(original: Image.Image, questioned: Image.Image) -> tuple[np.ndarray, np.ndarray, str]:
+def _align(original: Image.Image, questioned: Image.Image, side: int = WORK_SIDE) -> tuple[np.ndarray, np.ndarray, str]:
     """Both images as float arrays at the same size. Same shape → resize; otherwise a feature-based homography."""
-    scale = WORK_SIDE / max(original.size)
+    scale = side / max(original.size)
     size = (max(1, round(original.width * scale)), max(1, round(original.height * scale)))
     ref = _fit(original, size)
     if abs(original.width / original.height - questioned.width / questioned.height) < 0.02:
@@ -114,12 +119,38 @@ def _align(original: Image.Image, questioned: Image.Image) -> tuple[np.ndarray, 
     return ref, warped, "lined up by matching features (cropped, rotated or reframed copy)"
 
 
-def compare(original: Image.Image, questioned: Image.Image) -> dict:
-    ref, que, how = _align(original, upright(original, questioned))
-    # Match overall brightness and colour first: a messenger's colour conversion is not an edit.
+def _match_colour(ref: np.ndarray, que: np.ndarray) -> None:
+    """Match overall brightness and colour first: a messenger's colour conversion is not an edit."""
     for c in range(3):
         r, q = ref[..., c], que[..., c]
         que[..., c] = (q - q.mean()) / (q.std() + 1e-6) * r.std() + r.mean()
+
+
+def _thin_marks(original: Image.Image, questioned: Image.Image, size: tuple[int, int]) -> np.ndarray:
+    """
+    Long, thin changes such as pen strokes, as a mask at `size`. A pixel counts only when it lies outside the range of
+    the original's pixels around it, so a copy that is a pixel or two out of line along an edge doesn't count.
+    """
+    ref, que, _ = _align(original, questioned, THIN_SIDE)
+    _match_colour(ref, que)
+    ref, que = cv2.GaussianBlur(ref, (0, 0), 1.0), cv2.GaussianBlur(que, (0, 0), 1.0)
+    k = np.ones((5, 5), np.uint8)
+    outside = np.maximum(cv2.erode(ref, k) - que, que - cv2.dilate(ref, k)).max(axis=2)
+    # Resizing smears the outermost rows and columns (a Facebook copy flagged its bottom edge), so skip the frame.
+    b = THIN_BORDER
+    outside[:b], outside[-b:], outside[:, :b], outside[:, -b:] = 0, 0, 0, 0
+    mask = (outside > THIN_LEVEL).astype(np.uint8)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
+    long_side = max(mask.shape)
+    keep = [i for i, (x, y, w, h, a) in enumerate(stats[1:], start=1) if max(w, h) >= THIN_LENGTH * long_side]
+    thin = np.isin(labels, keep).astype(np.uint8)
+    return (cv2.resize(thin, size, interpolation=cv2.INTER_AREA) > 0).astype(np.uint8)
+
+
+def compare(original: Image.Image, questioned: Image.Image) -> dict:
+    questioned = upright(original, questioned)
+    ref, que, how = _align(original, questioned)
+    _match_colour(ref, que)
     blur = lambda a: cv2.GaussianBlur(a, (0, 0), 2.0)  # noqa: E731  smooths away compression noise
     diff = np.abs(blur(ref) - blur(que)).max(axis=2)
     mask = (diff > CHANGE_LEVEL).astype(np.uint8)
@@ -131,6 +162,12 @@ def compare(original: Image.Image, questioned: Image.Image) -> dict:
     for i, (*_, a) in enumerate(stats[1:], start=1):
         if a / area >= MIN_REGION:
             keep[labels == i] = 1
+    thin = _thin_marks(original, questioned, (mask.shape[1], mask.shape[0]))
+    # Thin marks away from the regions above become regions of their own; close strokes (one scribble) form one region.
+    n2, groups, stats2, _ = cv2.connectedComponentsWithStats(cv2.dilate(thin, np.ones((15, 15), np.uint8)))
+    touched = set(np.unique(groups[keep == 1]))
+    regions += [[int(x), int(y), int(x + w), int(y + h)] for i, (x, y, w, h, _) in enumerate(stats2[1:], start=1) if i not in touched]
+    keep = keep | thin
     changed = float(keep.mean())
 
     overlay = que.clip(0, 255).astype(np.uint8).copy()

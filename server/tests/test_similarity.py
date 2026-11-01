@@ -1,6 +1,6 @@
 import io
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from app.forensics import similarity as sim
 from app.forensics.common import open_rgb
@@ -42,6 +42,16 @@ def test_difference_map_outlines_a_splice():
     assert result["findings"][0]["severity"] == "high"
     x0, y0, x1, y1 = result["regions"][0]
     assert x0 < 760 and x1 > 600 and y0 < 310 and y1 > 150  # overlaps the pasted area (work size = 1024 px, same as the photo)
+
+
+def test_difference_map_outlines_a_thin_pen_stroke():
+    # A 2 px line is erased by the smoothing in the main pass; the thin-mark pass must still outline it.
+    original = photo()
+    edited = original.copy()
+    ImageDraw.Draw(edited).line([(200, 500), (330, 480), (450, 520)], fill=(20, 20, 20), width=2)
+    result = sim.compare(original, open_rgb(jpeg(edited, 85)))
+    assert result["findings"][0]["severity"] == "high"
+    assert any(x0 < 450 and x1 > 200 and y0 < 522 and y1 > 478 for x0, y0, x1, y1 in result["regions"])
 
 
 def test_match_and_compare_endpoints(client, investigator, phone, case_id):
