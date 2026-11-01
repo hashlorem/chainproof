@@ -18,6 +18,7 @@ const CHECK_LABEL: Record<string, string> = {
   device_signature: "Signed on device at capture",
   trusted_timestamp: "Trusted timestamp",
   chain_of_custody: "Chain of custody",
+  custody_anchor: "Custody log timestamped",
 };
 
 export function PublicResult({ sha256 }: { sha256: string }) {

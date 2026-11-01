@@ -24,6 +24,8 @@ export interface EvidenceCheck { evidence_id: string; filename: string; sha256: 
 export interface Verification {
   ok: boolean;
   chain: { ok: boolean; length: number; broken_at: number | null; reason: string | null };
+  /** Trusted-timestamp anchors of the custody log (TM-001). ok is null when the log was never anchored. */
+  anchors?: { ok: boolean | null; count: number; latest: { seq: number; head_seq: number; head_hash: string; tsa_time: string } | null; problems: string[] };
   evidence: EvidenceCheck[];
 }
 export interface Finding {
@@ -39,7 +41,7 @@ export interface ForensicReport {
     metadata: { format: string; width: number; height: number; tags: Record<string, string>; gps: { lat: number; lon: number } | null };
     ela: { mean_error: number; outlier_ratio: number; heatmap_png?: string; has_ela_image?: boolean };
     copy_move: { pairs: number; regions: unknown[]; overlay_png?: string | null; has_copymove_image?: boolean };
-    c2pa: { present: boolean; generator?: string; issuer?: string; validation_state?: string; ai_generated?: boolean };
+    c2pa: { present: boolean; generator?: string; issuer?: string; validation_state?: string; ai_generated?: boolean; trusted?: boolean };
     /** File history: what the file's structure says about where it has been. Older reports don't have it. */
     structure?: {
       source: string; label: string; detail: string; format: string;
@@ -62,6 +64,10 @@ export type ConclusionLevel = "none" | "limited" | "moderate" | "strong" | "very
 export interface Examination {
   question: string | null;
   notes: { seq: number; ts: string; by: string; text: string }[];
+  comparisons: {
+    seq: number; ts: string; by: string; filename: string; sha256: string; distance: number;
+    changed_ratio: number; regions: number; aligned: string | null; overlay: string | null;
+  }[];
   conclusion: {
     seq: number; ts: string; by: string; by_id: string; question: string; h1: string; h2: string;
     level: string; level_key: ConclusionLevel; rationale: string; limitations: string;

@@ -115,6 +115,24 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
           )}
         </section>
 
+        {exam.comparisons.length > 0 && (
+          <section className="space-y-2">
+            <h3 className="heading text-lg">Comparisons with copies</h3>
+            <ol className="divide-y divide-border border border-rule">
+              {exam.comparisons.map((c) => (
+                <li key={c.seq} className="grid gap-1 p-3 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center">
+                  <span className="eyebrow">#{c.seq} · {formatTs(c.ts)}<br />{c.by}</span>
+                  <span className="truncate">{c.filename} <span className="font-mono text-xs text-muted">{c.sha256.slice(0, 12)}…</span></span>
+                  {c.regions > 0
+                    ? <Pill tone="bad">{`${c.regions} changed region(s) · ${(c.changed_ratio * 100).toFixed(1)}%`}</Pill>
+                    : <Pill tone="ok">No changes</Pill>}
+                </li>
+              ))}
+            </ol>
+            <p className="text-xs text-muted">Difference maps are included in the examination report.</p>
+          </section>
+        )}
+
         <section className="space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="heading text-lg">Conclusion</h3>

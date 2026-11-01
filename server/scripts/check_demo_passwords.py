@@ -1,4 +1,7 @@
-"""Exit code 1 if any account still uses the public demo password. demo.sh runs this before going online."""
+"""
+Exit code 3 (and the emails) if any account still uses the public demo password. demo.sh runs this before going online
+and refuses to start on 3. Any other non-zero code means the check itself failed, which demo.sh also treats as a stop.
+"""
 
 import sys
 
@@ -15,4 +18,4 @@ if __name__ == "__main__":
         weak = [u.email for u in db.scalars(select(User)) if verify_password(u.password_hash, DEMO_PASSWORD)]
     if weak:
         print("\n".join(weak))
-        sys.exit(1)
+        sys.exit(3)

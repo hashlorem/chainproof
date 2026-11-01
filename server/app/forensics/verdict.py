@@ -29,7 +29,8 @@ def run_all(data: bytes, mime: str, provenance_verified: bool = False) -> dict:
     if provenance_verified:
         findings.insert(0, finding("info", "Signed at capture", "This photo was taken in ChainProof and its hash still matches the device signature. Nothing was changed after capture.") | {"check": "provenance"})
         verdict = "verified_capture"
-    elif results["c2pa"].get("ai_generated") or any(f["title"] == "AI generator named in metadata" for f in findings):
+    # Only signed credentials from a listed signer: metadata text and self-signed claims are easy to forge (TM-011).
+    elif results["c2pa"].get("ai_generated") and results["c2pa"].get("trusted"):
         verdict = "ai_generated"
     elif score >= 4 or any(f["severity"] == "high" for f in findings):
         verdict = "likely_manipulated"

@@ -74,7 +74,7 @@ This runs the API and web app on this laptop and opens two free Cloudflare tunne
 
 - **Install first:** `brew install cloudflared`. No account is needed.
 - **Addresses change:** you get new ones every run.
-- **Passwords:** the app is public while the tunnel is open. Change the demo passwords first: click your name to change yours, and supervisors use **Users → Reset password** for the others. The script warns you if any account still uses `chainproof123`.
+- **Passwords:** the app is public while the tunnel is open. Change the demo passwords first: click your name to change yours, and supervisors use **Users → Reset password** for the others. The script refuses to start while any account still uses `chainproof123`.
 - **Video size:** Cloudflare's free tunnel rejects uploads over 100 MB, so phone videos stop at 90 MB.
 
 ### Installable Android app and updates
@@ -113,7 +113,7 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 68 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
+cd server && uv run pytest                # 83 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
                                           #   examinations, and a validation regression gate on six real photos
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
 
@@ -180,7 +180,7 @@ Latest results (1,155 images; full detail and 95% confidence intervals in the re
 | Copies traced back to their stored original | **99.9%** (1,049 of 1,050); unrelated photos wrongly matched: **0 of 10,920** pairs |
 | Difference map against the original: changes reported on innocent copies / edits outlined | **0 of 420** / **83%** (splices **95%**) |
 | File history: camera originals / Facebook / WhatsApp recognised | 100% / 100% / 99%; no re-saved file ever called a camera original (0 of 1,050) |
-| AI-generated images | only via Content Credentials; no learned detector passed testing |
+| AI-generated images | only via Content Credentials from a signer on the official C2PA trust list (ChatGPT's are); a self-signed claim or an AI name in the metadata is only a warning; no learned detector passed testing |
 
 The full report, with 95% confidence intervals, results by edit type and by recompression, a held-out check and the
 limitations, is in [`docs/validation/VALIDATION.md`](docs/validation/VALIDATION.md). To reproduce it (about 1.3 GB of
@@ -210,12 +210,18 @@ uv run pytest tests/test_migrations.py                              # fails if m
 
 1. **Capture.** On the phone, open a case and take 2–3 photos and a short video. Point out "Signed and queued" and the hash.
 2. **Offline.** Turn on airplane mode and take a photo. It waits in the queue. Turn airplane mode off and it uploads, with the signature still valid.
-3. **Web.** Open the case. Show the map, the custody timeline and the "Timestamped" badges. Click **Verify integrity**: all green, and checked a second time *in the browser*.
+3. **Web.** Open the case. Show the map, the custody timeline and the "Timestamped" badges. Click **Verify integrity**: all green, and checked a second time *in the browser*. Verify also sends the newest entry's hash to FreeTSA ("Log anchored").
 4. **Attack.** As the "insider with database access":
    ```bash
    cd server && uv run python -m scripts.tamper_demo --smart
    ```
    Click **Verify** again. The timeline turns red at the exact entry that was forged.
+   Then play the laptop's owner, who also has the server's signing key:
+   ```bash
+   uv run python -m scripts.tamper_demo --resign
+   ```
+   Every hash is recomputed and re-signed, so the chain itself checks out again. Click **Verify**: it still fails, because
+   the FreeTSA timestamp from step 3 no longer matches, and a new one would carry today's date.
 5. **Forensics.** Import an edited photo, for example one with a cloned area, then click **Run analysis**. It shows "Likely manipulated" with the clone highlighted, and how often that check is wrong.
    Add a note, record a conclusion as the investigator, review it as the supervisor, and export the examination report.
 6. **Copies.** In **Check a photo**, drop the edited copy of a photo whose original is in a case. ChainProof finds the

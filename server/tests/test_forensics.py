@@ -149,3 +149,62 @@ def test_analyze_endpoints(client, investigator, phone, case_id, original):
     assert r.status_code == 200 and r.json()["checks"]["ela"]["heatmap_png"]
     r = client.post("/forensics/analyze", files={"file": ("x.txt", b"hi", "text/plain")}, headers=investigator["headers"])
     assert r.status_code == 415
+
+
+def test_ai_name_in_metadata_is_not_an_ai_verdict(original):
+    """Anyone can type "Midjourney" into a real photo's metadata; that must not discredit it as AI-generated (TM-011)."""
+    ex = Image.Exif()
+    ex[0x0131] = "Midjourney v7"  # Software
+    report = run_all(jpeg(scene(), exif=ex.tobytes()), "image/jpeg")
+    assert report["verdict"] != "ai_generated"
+    assert any(f["title"] == "AI generator named in metadata" and f["severity"] == "medium" for f in report["findings"])
+
+
+def _self_signed_ai_credential() -> bytes:
+    """A JPEG with a C2PA manifest claiming AI generation, signed by a certificate authority the forger made up."""
+    import datetime as dt
+
+    import c2pa
+    from cryptography import x509
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
+
+    def cert(name, key, issuer, issuer_key, ca):
+        now = dt.datetime.now(dt.timezone.utc)
+        b = (x509.CertificateBuilder().subject_name(x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, name),
+                                                                x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Forger")]))
+             .issuer_name(issuer).public_key(key.public_key()).serial_number(x509.random_serial_number())
+             .not_valid_before(now - dt.timedelta(days=1)).not_valid_after(now + dt.timedelta(days=30))
+             .add_extension(x509.BasicConstraints(ca=ca, path_length=None), critical=True)
+             .add_extension(x509.SubjectKeyIdentifier.from_public_key(key.public_key()), critical=False)
+             .add_extension(x509.AuthorityKeyIdentifier.from_issuer_public_key(issuer_key.public_key()), critical=False))
+        if ca:
+            b = b.add_extension(x509.KeyUsage(False, False, False, False, False, True, True, False, False), critical=True)
+        else:
+            b = b.add_extension(x509.KeyUsage(True, False, False, False, False, False, False, False, False), critical=True)
+            b = b.add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.EMAIL_PROTECTION]), critical=False)
+        return b.sign(issuer_key, hashes.SHA256())
+
+    ca_key, key = ec.generate_private_key(ec.SECP256R1()), ec.generate_private_key(ec.SECP256R1())
+    ca = cert("Forger CA", ca_key, x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Forger CA")]), ca_key, True)
+    leaf = cert("Forger signer", key, ca.subject, ca_key, False)
+    signer = c2pa.Signer.from_info(c2pa.C2paSignerInfo(
+        alg=b"es256", ta_url=None,
+        sign_cert=leaf.public_bytes(serialization.Encoding.PEM) + ca.public_bytes(serialization.Encoding.PEM),
+        private_key=key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())))
+    manifest = {"claim_generator_info": [{"name": "FakeGen"}], "assertions": [{"label": "c2pa.actions.v2", "data": {"actions": [
+        {"action": "c2pa.created", "digitalSourceType": "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"}]}}]}
+    out = io.BytesIO()
+    with c2pa.Builder(manifest) as builder:
+        builder.sign(signer, "image/jpeg", io.BytesIO(jpeg(scene())), out)
+    return out.getvalue()
+
+
+def test_self_signed_ai_credential_is_not_an_ai_verdict():
+    """A valid signature from an unlisted signer is still only a claim (TM-011). Real ChatGPT images come out Trusted."""
+    report = run_all(_self_signed_ai_credential(), "image/jpeg")
+    c2pa_result = report["checks"]["c2pa"]
+    assert c2pa_result["ai_generated"] and not c2pa_result["trusted"]
+    assert report["verdict"] != "ai_generated"
+    assert any(f["title"] == "Content Credentials claim AI, signer not trusted" for f in report["findings"])

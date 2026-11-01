@@ -1,7 +1,7 @@
 """
 Image examination report for one file, in the order of the SWGDE image-authentication workflow:
 provenance and acquisition → file structure → global analysis → local analysis → AI content → findings →
-examiner conclusion → technical review → method and limitations.
+comparisons with copies → notes → examiner conclusion → technical review → method and limitations.
 
 Used by the command-line examiner (scripts/examine.py) and by examinations in the web app.
 """
@@ -40,8 +40,8 @@ def _p(text: str, style=SMALL) -> Paragraph:
 
 def build_examination(subject: dict, report: dict, images: dict, method: dict, examination: dict | None = None) -> bytes:
     """
-    subject: filename, sha256, size, mime, source, acquired_at, and optionally sha256_after (re-hash after analysis)
-             and provenance (text).
+    subject: filename, sha256, size, mime, source, acquired_at, and optionally sha256_after (re-hash after analysis),
+             provenance (text) and custody_anchor (the trusted timestamp that covers the custody log).
     report: the output of run_all() with images removed (split_images).
     images: {"original": bytes, "ela": png bytes, "copymove": png bytes}; any can be missing.
     method: tool, commit, versions, examined_at, examiner.
@@ -73,6 +73,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
         ["SHA-256 after analysis", _p(f"{after or '—'} ({integrity})", MONO)],
         ["Size / type", f"{subject['size']:,} bytes · {subject['mime']}"],
         ["Received", _p(subject.get("acquired_at") or "not recorded")],
+        ["Custody log anchor", _p(subject.get("custody_anchor") or "not recorded")],
     ], [38 * mm, 142 * mm], header=False), Spacer(1, 3 * mm)]
 
     # 2. File structure
@@ -104,8 +105,9 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     ])]
 
     # 5. AI-generated content
-    ai_note = ("Content Credentials declare AI generation." if c2pa.get("ai_generated")
-               else "No AI declaration found. Absence is not evidence of a real photo: credentials are easily stripped, "
+    ai_note = ("Content Credentials from a signer on the C2PA trust list declare AI generation." if c2pa.get("ai_generated") and c2pa.get("trusted")
+               else "Content Credentials claim AI generation, but the signer is not on the C2PA trust list, so the claim could be forged."
+               if c2pa.get("ai_generated") else "No AI declaration found. Absence is not evidence of a real photo: credentials are easily stripped, "
                     "and learned AI detectors were not used because none passed validation.")
     story += [Paragraph("5. AI-generated content", h2), _p(ai_note, body), Spacer(1, 3 * mm)]
 
@@ -118,14 +120,40 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     story += [Paragraph("6. Findings", h2), _table(rows, [18 * mm, 20 * mm, 88 * mm, 54 * mm]),
               _p(f"Automated summary: {report['label']} (score {report['score']}). {report['disclaimer']}"), Spacer(1, 3 * mm)]
 
-    # 7. Notes, 8. conclusion, 9. review
+    # 7. Comparisons with questioned copies (difference maps made against this item's original)
+    comparisons = exam.get("comparisons") or []
+    story.append(Paragraph("7. Comparisons with copies", h2))
+    if not comparisons:
+        story += [_p("No questioned copies were compared with this item.", body), Spacer(1, 3 * mm)]
+    else:
+        story.append(_p("Each questioned copy was lined up with this item's original; areas that differ beyond recompression and "
+                        "resizing are tinted and outlined in red.", body))
+        for c in comparisons[-4:]:
+            outcome = (f"{c['regions']} changed region(s), {c['changed_ratio']:.1%} of the image" if c["regions"]
+                       else "no change beyond recompression and resizing")
+            picture = (_img(c["overlay_png"], 70) if c.get("overlay_png")
+                       else _p("Difference map not stored: this comparison was made before maps were kept. The result is in the custody log."))
+            story.append(KeepTogether([Table([[picture, _table([
+                ["Copy", _p(c["filename"])],
+                ["SHA-256", _p(c["sha256"], MONO)],
+                ["Result", Paragraph(f'<font color="{(BAD if c["regions"] else OK).hexval()}"><b>{outcome}</b></font>', SMALL)],
+                ["Match", _p(f"fingerprint {c['distance']}/64 bits apart · {c.get('aligned') or 'aligned'}")],
+                ["By", _p(f"{c['by']} · {_ts(c['ts'])} (custody entry #{c['seq']})")],
+            ], [22 * mm, 82 * mm], header=False)]], colWidths=[74 * mm, 106 * mm],
+                style=[("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]), Spacer(1, 3 * mm)]))
+        if len(comparisons) > 4:
+            story.append(_p(f"{len(comparisons) - 4} earlier comparison(s) are in the custody log.", body))
+
+    # 8. Notes, 9. conclusion, 10. review
     notes = exam.get("notes") or []
+    story.append(Paragraph("8. Examiner notes", h2))
     if notes:
-        story += [Paragraph("7. Examiner notes", h2),
-                  _table([["Time (UTC)", "By", "Note"]] + [[_p(_ts(n["ts"])), _p(n["by"]), _p(n["text"])] for n in notes], [32 * mm, 30 * mm, 118 * mm]),
-                  Spacer(1, 3 * mm)]
+        story += [_table([["Time (UTC)", "By", "Note"]] + [[_p(_ts(n["ts"])), _p(n["by"]), _p(n["text"])] for n in notes],
+                         [32 * mm, 30 * mm, 118 * mm]), Spacer(1, 3 * mm)]
+    else:
+        story += [_p("No notes recorded.", body), Spacer(1, 3 * mm)]
     c = exam.get("conclusion")
-    story.append(Paragraph("8. Examiner conclusion", h2))
+    story.append(Paragraph("9. Examiner conclusion", h2))
     if c:
         story += [_table([
             ["Hypotheses", _p(f"H1: {c['h1']}  ·  H2: {c['h2']}")],
@@ -140,7 +168,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     story.append(Spacer(1, 3 * mm))
 
     r = exam.get("review")
-    story.append(Paragraph("9. Technical review", h2))
+    story.append(Paragraph("10. Technical review", h2))
     if r:
         color = (OK if r["agrees"] else BAD).hexval()
         story.append(_table([
@@ -153,7 +181,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
 
     # 10. Method and limitations
     validation = report.get("validation")
-    story += [Spacer(1, 3 * mm), Paragraph("10. Method and limitations", h2), _table([
+    story += [Spacer(1, 3 * mm), Paragraph("11. Method and limitations", h2), _table([
         ["Tool", _p(f"{method['tool']} · commit {method.get('commit', 'unknown')}")],
         ["Libraries", _p(method.get("versions", ""))],
         ["Validation", _p(f"Error rates measured {_ts(validation['validated_at'])} on test set {validation['test_set']} (commit {validation['commit']}). "

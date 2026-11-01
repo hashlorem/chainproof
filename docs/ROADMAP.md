@@ -13,6 +13,10 @@ every examiner action in the append-only custody log, and every conclusion on a 
 | 1 | Command-line examiner, CI | `server/scripts/examine.py`, `.github/workflows/ci.yml` |
 | 2 | File history: camera / re-saved / Facebook / WhatsApp / Messenger from the file's structure | `server/app/forensics/structure.py` |
 | 2 | Copies of evidence: perceptual-hash search with scene-geometry confirmation, difference map, `COMPARED` custody entries | `server/app/forensics/similarity.py`, `server/app/routers/forensics.py` |
+| 2 | Comparisons with copies in the examination PDF | `server/app/reports/examination.py` |
+| 2 | Threat model and standards mapping | `docs/security/chainproof-threat-model.md`, `docs/security/standards-mapping.md` |
+| 2 | Custody log anchored to FreeTSA on every verify and export (TM-001); printed in both PDFs; `tamper_demo --resign` shows a re-signed rewrite being caught | `server/app/core/anchor.py` |
+| 2 | Security fixes TM-003, TM-004, TM-005, TM-011: `demo.sh` refuses demo passwords; tunnel visitors told apart by `CF-Connecting-IP`, password reset lifts a lockout; public verify capped at 210 MB and 30 lookups/min; *AI-generated* only from a C2PA signer on the official trust list | `demo.sh`, `server/app/core/security.py`, `server/app/main.py`, `server/app/forensics/c2pa_check.py`, `verdict.py` |
 
 ## Phase 2: still to do
 
@@ -22,13 +26,25 @@ presentation. AI detection moved to the friend (next section). Follow *Working i
 
 | # | Item | Why | How to validate |
 |---|---|---|---|
-| 1 | **Comparisons in the examination PDF** (*now*) | Today a comparison is only a custody entry; the report should show the difference map and its numbers | Unit test: a compared item's PDF contains the comparison section |
 | 2 | **Validate the Messenger fingerprint** (friend can collect samples while building the AI set) | It rests on five photos from one sender's phone | Collect Messenger copies from several phones and app versions; add a `messenger` class to the test set; keep the label only if recognised ≥ 90% with ≤ 1% given wrongly |
 | 3 | **Noise inconsistency map** (*now, if validation shows it helps*) | Spliced regions often carry different sensor noise; the difference map needs an original, this doesn't | Add as a check in `app/forensics`; run the harness; it may push the verdict only if it beats its false-alarm rate (as ELA failed to) |
 | 4 | **JPEG ghosts** (Farid) | Shows regions that were compressed at a different quality before being pasted | Same as #3 |
 | 5 | **Write C2PA Content Credentials** into signed captures (`c2pa-python` Builder) | Any C2PA verifier (Adobe's, the official tool) could then check our provenance, not only ChainProof | Round-trip test: our credential validates with `c2patool`; document that a self-signed certificate shows as "untrusted signer" |
-| 6 | **Threat model + standards mapping** (*now*) | Who could tamper and how each attack is caught; how each ISO/IEC 27037/27041/27042 requirement maps to a feature. Both go straight into the slides | Review against the code; the threat model with the `security-threat-model` skill |
+| 6 | **Identical real objects** (found 31 Oct 2026) | Copy-move called the owner's untouched photo `16706978` *Likely manipulated*: two identical printed earring cards hang side by side (23 matches, scale 0.99). The VISION scenes rarely show duplicate products | Collect photos of shelves and stalls with repeated items; add them as a benign class; then decide whether near-identical objects need a higher match count or a "repeated object" wording |
 | 7 | **Platform trust** | What a real lab would ask about | Hardware-backed device keys with Android key attestation (new APK); Postgres + MinIO/S3 object lock |
+
+### Security fixes from the threat model (`docs/security/chainproof-threat-model.md`)
+
+| Threat | Fix | Priority | Size |
+|---|---|---|---|
+| TM-003 (rest) | Force a password change on first login (needs a migration: say so first) | medium | small |
+| TM-004 (rest) | Growing delays instead of a hard lockout | low | small |
+| TM-011 (rest) | Add forged-AI-metadata and self-signed-credential cases to the validation set; re-download the C2PA trust list now and then | low | small |
+| TM-001 (rest) | Keep the server's signing key away from the database when hosted (separate secret store or HSM) | medium | medium |
+| TM-002 | Supervisor approval before a new device can sign; show enrolment date and approver in reports | high | medium |
+| TM-006 | Run image analysis in a worker process with time and memory limits; lower Pillow's pixel limit; `pip-audit` in CI | medium | medium |
+| TM-008 | Require the phone passcode when no biometrics are enrolled (new APK) | medium | small |
+| TM-007 | Content-Security-Policy for the web app | low | small |
 
 ## Friend: AI detection that survives missing metadata and compression
 

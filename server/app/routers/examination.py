@@ -17,7 +17,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import storage
-from app.core.chain import append_entry
+from app.core.anchor import anchor_if_intact, check_anchors, describe as describe_anchors
+from app.core.chain import append_entry, load_chain
 from app.core.security import current_user, require_role
 from app.db import get_db
 from app.forensics import rates
@@ -63,13 +64,13 @@ def _writable(db: Session, ev: Evidence) -> None:
 def _entries(db: Session, ev: Evidence) -> list[CustodyEntry]:
     return list(db.scalars(select(CustodyEntry).where(
         CustodyEntry.case_id == ev.case_id, CustodyEntry.evidence_id == ev.id,
-        CustodyEntry.action.in_(("NOTED", "CONCLUDED", "REVIEWED"))).order_by(CustodyEntry.seq)))
+        CustodyEntry.action.in_(("NOTED", "CONCLUDED", "REVIEWED", "COMPARED"))).order_by(CustodyEntry.seq)))
 
 
 def examination_state(db: Session, ev: Evidence) -> dict:
-    """Notes, the latest conclusion, and the review of that conclusion (an older conclusion's review doesn't count)."""
+    """Notes, comparisons, the latest conclusion, and the review of that conclusion (an older conclusion's review doesn't count)."""
     names = {u.id: u.name for u in db.scalars(select(User))}
-    notes, conclusion, review = [], None, None
+    notes, comparisons, conclusion, review = [], [], None, None
     for e in _entries(db, ev):
         by = names.get(e.actor_id, e.actor_id)
         if e.action == "NOTED":
@@ -78,10 +79,15 @@ def examination_state(db: Session, ev: Evidence) -> dict:
             conclusion = {"seq": e.seq, "ts": e.ts, "by": by, "by_id": e.actor_id, **e.details,
                           "level": LEVELS[e.details["level"]], "level_key": e.details["level"]}
             review = None
+        elif e.action == "COMPARED":
+            d = e.details
+            comparisons.append({"seq": e.seq, "ts": e.ts, "by": by, "filename": d.get("questioned_filename") or "unnamed copy",
+                                "sha256": d["questioned_sha256"], "distance": d["distance"], "changed_ratio": d["changed_ratio"],
+                                "regions": d["regions"], "aligned": d.get("aligned"), "overlay": d.get("overlay")})
         elif e.action == "REVIEWED" and conclusion and e.details.get("conclusion_seq") == conclusion["seq"]:
             review = {"seq": e.seq, "ts": e.ts, "by": by, "agrees": e.details["agrees"], "comment": e.details["comment"]}
-    return {"question": (conclusion or {}).get("question"), "notes": notes, "conclusion": conclusion, "review": review,
-            "levels": LEVELS}
+    return {"question": (conclusion or {}).get("question"), "notes": notes, "comparisons": comparisons, "conclusion": conclusion,
+            "review": review, "levels": LEVELS}
 
 
 @router.get("/evidence/{evidence_id}/examination")
@@ -141,6 +147,7 @@ def examination_report(evidence_id: str, user: User = Depends(current_user), db:
     ev = get_evidence(db, evidence_id)
     if not ev.forensics_json:
         raise HTTPException(409, "Run the forensic analysis first")
+    anchor_if_intact(db, ev.case_id, user.id)  # before the PDF, so the report prints the anchor that covers it
     state = examination_state(db, ev)
     commit, libs = _tool_versions()
     now = fmt_ts(utcnow())
@@ -152,9 +159,12 @@ def examination_report(evidence_id: str, user: User = Depends(current_user), db:
         "acquired_at": ev.received_at + (f" · trusted timestamp {ev.tsa_time}" if ev.tsa_time else ""),
         # The stored original is content-addressed; re-hash it now to show the copy examined is the evidence.
         "sha256_after": hashlib.sha256(storage.load(ev.storage_key)).hexdigest(),
+        "custody_anchor": describe_anchors(check_anchors(load_chain(db, ev.case_id))),
     }
     images = {"original": storage.load(ev.storage_key), "ela": storage.load_derived(ev.id, "ela.png"),
               "copymove": storage.load_derived(ev.id, "copymove.png")}
+    for c in state["comparisons"]:
+        c["overlay_png"] = storage.load_derived(ev.id, c["overlay"]) if c.get("overlay") else None
     report = rates.annotate(dict(ev.forensics_json))
     pdf = build_examination(subject, report, images,
                             {"tool": "ChainProof", "commit": commit, "versions": libs, "examined_at": now, "examiner": user.name},

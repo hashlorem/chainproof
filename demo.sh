@@ -36,19 +36,27 @@ tunnel() { # tunnel <port> <name> -> prints the public URL
   exit 1
 }
 
-# The tunnels make the app public. Anyone who finds the address could sign in with the README's demo password.
-if weak=$(cd server && uv run python -m scripts.check_demo_passwords 2>/dev/null); then :; else
-  cat >&2 <<WARN
+# The tunnels make the app public. Anyone who finds the address could sign in with the README's demo password,
+# so refuse to start until every account has a new one (threat TM-003 in docs/security/).
+set +e
+weak=$(cd server && uv run python -m scripts.check_demo_passwords 2>"$LOGS/password-check.log")
+status=$?
+set -e
+if [ "$status" -eq 3 ]; then
+  cat >&2 <<STOP
 
-  WARNING: these accounts still use the public demo password "chainproof123":
+  STOPPED: these accounts still use the public demo password "chainproof123":
 $(echo "$weak" | sed 's/^/    /')
-  While the tunnel is open, anyone with the address can sign in as them.
-  Change them first: sign in on the web, click your name (top right) to change your own password,
-  and as a supervisor use Users → Reset password for the others.
+  While the tunnel is open, anyone with the address could sign in as them.
+  Change them first: run "pnpm api" and "pnpm web", sign in at http://localhost:3100, click your name
+  (top right) to change your own password, and as a supervisor use Users → Reset password for the others.
+  Then run ./demo.sh again.
 
-WARN
-  read -r -p "  Continue anyway? [y/N] " answer
-  [[ "$answer" =~ ^[Yy]$ ]] || exit 1
+STOP
+  exit 1
+elif [ "$status" -ne 0 ]; then
+  echo "Could not check the demo passwords, so not going online. See $LOGS/password-check.log" >&2
+  exit 1
 fi
 
 echo "Opening tunnels…"
@@ -59,6 +67,7 @@ echo "Starting API…"
 (
   cd server
   CHAINPROOF_PUBLIC_BASE_URL="$WEB_URL" \
+  CHAINPROOF_TRUST_CF_CONNECTING_IP=true \
   CHAINPROOF_CORS_ORIGINS="[\"http://localhost:3100\",\"$WEB_URL\"]" \
   uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips '*' >"$LOGS/api.log" 2>&1
 ) &

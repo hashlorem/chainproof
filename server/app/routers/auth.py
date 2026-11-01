@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.security import create_token, current_user, hash_password, login_limiter, require_role, verify_password
+from app.core.security import client_ip, create_token, current_user, hash_password, login_limiter, require_role, verify_password
 from app.db import get_db
 from app.models import User
 from app.schemas import LoginIn, PasswordChangeIn, PasswordResetIn, UserCreate
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/login")
 def login(body: LoginIn, request: Request, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
-    keys = (f"email:{email}", f"ip:{request.client.host if request.client else '?'}")
+    keys = (f"email:{email}", f"ip:{client_ip(request)}")
     if wait := login_limiter.retry_after(*keys):
         raise HTTPException(429, f"Too many failed attempts. Try again in {wait // 60 + 1} min.", headers={"Retry-After": str(wait)})
     user = db.scalar(select(User).where(User.email == email))
@@ -65,4 +65,5 @@ def reset_password(
         raise HTTPException(404, "User not found")
     target.password_hash = hash_password(body.new_password)
     db.commit()
+    login_limiter.succeeded(f"email:{target.email}")  # a reset also lifts that account's lockout
     return {"ok": True}

@@ -1,8 +1,9 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 
 from app.config import settings
 from app.core.signing import server_key
@@ -18,8 +19,40 @@ async def lifespan(_: FastAPI):
     yield
 
 
+class CapUploads:
+    """
+    Refuses request bodies over a size limit on unauthenticated upload paths, before they are parsed (TM-005).
+    Checks Content-Length up front and counts the bytes as they arrive, for clients that don't send one.
+    """
+
+    def __init__(self, app, paths: tuple[str, ...]):
+        self.app, self.paths = app, paths
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope["method"] != "POST" or scope["path"] not in self.paths:
+            return await self.app(scope, receive, send)
+        cap = settings.public_verify_max_mb * 1024 * 1024
+        too_large = f"File too large. The limit is {cap // (1024 * 1024)} MB."
+        length = dict(scope["headers"]).get(b"content-length")
+        if length and length.isdigit() and int(length) > cap:
+            return await JSONResponse({"detail": too_large}, status_code=413)(scope, receive, send)
+        received = 0
+
+        async def counted():
+            nonlocal received
+            message = await receive()
+            received += len(message.get("body", b""))
+            if received > cap:
+                raise HTTPException(413, too_large)
+            return message
+
+        await self.app(scope, counted, send)
+
+
 logging.basicConfig(level=logging.INFO)
 app = FastAPI(title="ChainProof API", version="0.1.0", lifespan=lifespan)
+# Added before CORS so CORS wraps it and a browser can read the 413.
+app.add_middleware(CapUploads, paths=("/public/verify",))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,

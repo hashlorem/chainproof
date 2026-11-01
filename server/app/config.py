@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     tsa_cert_sha256: str = "32e841a95cc1164101ffde41298ef2fc75c1c4372ef095e88a6bbd47dfb191fc"
     login_max_failures: int = 5
     login_lockout_minutes: int = 15
+    # Behind a Cloudflare tunnel every request comes from cloudflared on 127.0.0.1, so per-address limits would hit
+    # everyone at once. demo.sh turns this on to read the visitor's address from Cloudflare's CF-Connecting-IP header.
+    # Leave it off when the API is reachable without Cloudflare in front: anyone could then set the header.
+    trust_cf_connecting_ip: bool = False
+    public_verify_max_mb: int = 210
+    public_verify_per_minute: int = 30
     public_base_url: str = "http://localhost:3100"
     cors_origins: list[str] = ["http://localhost:3100"]
 
