@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { mimeFromUri, sealCapture } from "@/lib/capture";
-import { Button, Card, ErrorText, H, T, short } from "@/ui";
+import { useTheme } from "@/lib/theme";
+import { Button, Card, ErrorText, H, T } from "@/ui";
 
 type Mode = "picture" | "video";
 type Phase =
@@ -19,6 +20,7 @@ const MAX_VIDEO_SECONDS = 120;
 const MAX_VIDEO_BYTES = 90 * 1024 * 1024; // Cloudflare's free tunnel rejects requests over 100 MB
 
 export default function Capture() {
+  const t = useTheme();
   const { caseId } = useLocalSearchParams<{ caseId: string }>();
   const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -116,12 +118,15 @@ export default function Capture() {
         )}
         {phase.kind === "done" && (
           <Card style={styles.panel}>
-            <H size={26}>Signed and queued</H>
-            <T size={13} muted>SHA-256</T>
-            <T mono size={12}>{short(phase.manifest.sha256, 16)}</T>
-            <T size={13} muted>
-              {phase.manifest.gps ? `GPS ${phase.manifest.gps.lat.toFixed(5)}, ${phase.manifest.gps.lon.toFixed(5)} (±${phase.manifest.gps.accuracy ?? "?"} m)` : "No GPS fix"}
+            <H size={22} style={{ color: t.ok }}>Signed at capture</H>
+            {/* Each step that just happened, so the investigator can say exactly what the phone did. */}
+            <T size={14}>✓ Hashed at {phase.manifest.captured_at.slice(11, 19)} UTC</T>
+            <T mono size={12} muted>{phase.manifest.sha256.match(/.{1,8}/g)?.join(" ")}</T>
+            <T size={14}>✓ Signed with this phone&apos;s key</T>
+            <T size={14}>
+              {phase.manifest.gps ? `✓ GPS ${phase.manifest.gps.lat.toFixed(5)}, ${phase.manifest.gps.lon.toFixed(5)} (±${phase.manifest.gps.accuracy ?? "?"} m)` : "– No GPS fix"}
             </T>
+            <T size={14} muted>Queued: uploads when there is a connection.</T>
             <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
               <Button title="Capture another" variant="secondary" style={{ flex: 1 }} onPress={() => setPhase({ kind: "ready" })} />
               <Button title="Done" style={{ flex: 1 }} onPress={() => router.back()} />

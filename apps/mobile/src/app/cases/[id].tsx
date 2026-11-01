@@ -41,7 +41,7 @@ export default function CaseScreen() {
         ListHeaderComponent={
           <View style={[styles.head, { borderColor: t.rule }]}>
             <View style={{ padding: 20, gap: 8 }}>
-              <Label color={t.bad}>Chain of custody record · {closed ? "Closed" : "Open"}</Label>
+              <Label>Chain of custody record · {closed ? "Closed" : "Open"}</Label>
               <H size={34}>{data?.title ?? title ?? "Case"}</H>
               {!!data?.description && <T muted size={12}>{data.description}</T>}
               {error && <ErrorText>{error}</ErrorText>}
@@ -138,10 +138,10 @@ function MediaBadge({ mime }: { mime: string }) {
 }
 
 const styles = StyleSheet.create({
-  head: { borderBottomWidth: 2 },
+  head: { borderBottomWidth: StyleSheet.hairlineWidth },
   stats: { flexDirection: "row", borderTopWidth: 1 },
-  row: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: 1 },
-  thumb: { width: 56, height: 56, borderWidth: 1, overflow: "hidden" },
+  row: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth },
+  thumb: { width: 56, height: 56, borderRadius: 8, overflow: "hidden" },
   thumbImg: { width: "100%", height: "100%" },
-  footer: { padding: 16, paddingBottom: 20, borderTopWidth: 2 },
+  footer: { padding: 16, paddingBottom: 20, borderTopWidth: StyleSheet.hairlineWidth },
 });

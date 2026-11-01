@@ -61,17 +61,19 @@ export default function Check() {
             <Button title="ELA" variant={view === "ela" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("ela")} disabled={!report.checks.ela.heatmap_png} />
             <Button title="Clones" variant={view === "clones" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("clones")} disabled={!(report.checks.copy_move.overlay_jpg ?? report.checks.copy_move.overlay_png)} />
           </View>
-          <Card style={{ backgroundColor: tone === "bad" ? bg : t.surface, borderColor: fg, gap: 4 }}>
-            <H size={26} style={{ color: fg }}>{report.label}</H>
+          <Card style={{ backgroundColor: bg, gap: 4 }}>
+            <H size={24} style={{ color: fg }}>{report.label}</H>
             <T size={13} muted>{report.disclaimer}</T>
           </Card>
           {report.findings.map((f, i) => (
             <Card key={i} style={{ gap: 6 }}>
               <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-                <Pill tone={SEVERITY_TONE[f.severity]}>{f.severity}</Pill>
+                <Pill tone={SEVERITY_TONE[f.severity]}>{f.severity.toUpperCase()}</Pill>
                 <T weight="600" style={{ flex: 1 }}>{f.title}</T>
               </View>
               <T size={14} muted>{f.detail}</T>
+              {f.validation !== undefined && <T size={13}><T size={13} muted>How reliable: </T>{f.validation ?? "not validated yet"}</T>}
+              {f.alternative && <T size={13}><T size={13} muted>What else explains it: </T>{f.alternative}</T>}
             </Card>
           ))}
         </>

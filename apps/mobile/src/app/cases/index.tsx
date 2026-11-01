@@ -32,7 +32,7 @@ export default function Cases() {
         options={{
           headerRight: () => (
             <Link href="/settings" asChild>
-              <Pressable hitSlop={10}><T size={12} weight="600" style={{ textTransform: "uppercase", letterSpacing: 1 }}>This device</T></Pressable>
+              <Pressable hitSlop={10}><T size={15} style={{ color: t.accent }}>This device</T></Pressable>
             </Link>
           ),
         }}
@@ -43,11 +43,11 @@ export default function Cases() {
         keyExtractor={(c) => c.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
         ListHeaderComponent={
-          <View style={{ gap: 12, padding: 16, paddingBottom: 12, borderBottomWidth: 2, borderColor: t.rule }}>
-            <Label color={t.bad}>Open cases · tap one to capture evidence</Label>
+          <View style={{ gap: 12, padding: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: t.rule }}>
+            <Label>Open cases · tap one to capture evidence</Label>
             {queue.length > 0 && (
               <Pressable onPress={() => router.push("/queue")}>
-                <Card style={{ borderColor: t.warn }}>
+                <Card style={{ backgroundColor: t.warnBg }}>
                   <T weight="600" style={{ color: t.warn }}>{queue.length} item{queue.length > 1 ? "s" : ""} waiting to upload</T>
                   <T size={13} muted>Already hashed and signed. Tap to see or retry.</T>
                 </Card>

@@ -11,7 +11,13 @@ export type Evidence = {
   received_at: string; tsa_status: string; tsa_time: string | null; forensics_label: string | null;
   manifest: { captured_at?: string; gps?: { lat: number; lon: number; accuracy: number | null } | null };
 };
-export type Finding = { severity: "info" | "low" | "medium" | "high"; title: string; detail: string };
+export type Finding = {
+  severity: "info" | "low" | "medium" | "high"; title: string; detail: string;
+  /** How often this check is wrong, from the validation report; null if not validated. Older servers omit it. */
+  validation?: string | null;
+  /** The innocent explanation to rule out before relying on this finding. */
+  alternative?: string | null;
+};
 export type ForensicReport = {
   verdict: string; label: string; findings: Finding[]; disclaimer: string;
   // overlay_png: servers from before 1 Nov 2026; newer ones send the clone overlay as JPEG.
