@@ -276,4 +276,5 @@ DESCRIBE = {
     "clone_rotated": "A region copied and rotated 10–30°",
     "removal": "An object covered with a patch from right next to it (clone stamp)",
     "splice": "A region pasted in from a different photo taken by a different phone",
+    "doodle": "Pen strokes or a scribble drawn over the photo (thin, solid colour, nothing copied)",
 }

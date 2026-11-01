@@ -8,7 +8,7 @@ from pathlib import Path
 # Benign: what happens to real photos every day. A check that fires on these is a false alarm.
 NEGATIVE = ("original", "whatsapp", "facebook", "recompressed", "resized")
 # Manipulated: what a forger does. A check that misses these is a miss.
-POSITIVE = ("clone_same", "clone_nearby", "clone_scaled", "clone_rotated", "removal", "splice")
+POSITIVE = ("clone_same", "clone_nearby", "clone_scaled", "clone_rotated", "removal", "splice", "doodle")
 
 
 @dataclass
