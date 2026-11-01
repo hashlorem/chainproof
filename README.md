@@ -113,7 +113,7 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 83 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
+cd server && uv run pytest                # 88 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
                                           #   examinations, and a validation regression gate on six real photos
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
 
