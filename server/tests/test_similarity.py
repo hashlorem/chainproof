@@ -59,6 +59,36 @@ def test_match_and_compare_endpoints(client, investigator, phone, case_id):
     assert entries[-1]["action"] == "COMPARED" and entries[-1]["details"]["distance"] == r.json()["distance"]
 
 
+def test_compared_copy_is_kept_as_an_exhibit(client, investigator, phone, case_id):
+    """Without the questioned file nobody could repeat the comparison, so it is kept, re-hashed and its download logged."""
+    import hashlib
+
+    from app import storage
+
+    original = PHOTOS.joinpath("D10_I_nat_0090.jpg").read_bytes()
+    ev = phone.upload(case_id, original).json()["id"]
+    copy = jpeg(Image.open(io.BytesIO(original)).convert("RGB").resize((640, 480)), 70)
+    sha = hashlib.sha256(copy).hexdigest()
+    client.post(f"/evidence/{ev}/compare", files={"file": ("copy.jpg", copy, "image/jpeg")}, headers=investigator["headers"])
+    assert client.get(f"/evidence/{ev}/examination", headers=investigator["headers"]).json()["comparisons"][-1]["kept"]
+
+    r = client.get(f"/evidence/{ev}/compared/{sha}", headers=investigator["headers"])
+    assert r.status_code == 200 and r.content == copy and r.headers["x-content-sha256"] == sha
+    last = client.get(f"/cases/{case_id}/custody", headers=investigator["headers"]).json()["entries"][-1]
+    assert last["action"] == "DOWNLOADED" and last["details"] == {"compared_copy": sha}
+
+    check = client.post(f"/cases/{case_id}/verify", headers=investigator["headers"]).json()
+    assert next(i for i in check["evidence"] if i["evidence_id"] == ev)["checks"]["kept_copies"]["ok"] is True
+    path = storage._path(sha)  # someone with access to the server swaps the kept file
+    path.chmod(0o644)
+    path.write_bytes(copy + b"x")
+    assert client.get(f"/evidence/{ev}/compared/{sha}", headers=investigator["headers"]).status_code == 409
+    check = client.post(f"/cases/{case_id}/verify", headers=investigator["headers"]).json()
+    assert check["ok"] is False
+    assert next(i for i in check["evidence"] if i["evidence_id"] == ev)["checks"]["kept_copies"]["ok"] is False
+    assert client.get(f"/evidence/{ev}/compared/{'0' * 64}", headers=investigator["headers"]).status_code == 404
+
+
 def test_same_scene_confirms_a_heavily_edited_copy_but_not_another_photo():
     original = photo()
     edited = original.copy()

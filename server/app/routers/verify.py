@@ -11,7 +11,7 @@ from app.config import settings
 from app.core.security import client_ip, current_user, public_limiter
 from app.core.signing import server_public_key_hex, verify_manifest
 from app.db import get_db
-from app.models import Case, Device, Evidence, Report, User
+from app.models import Case, CustodyEntry, Device, Evidence, Report, User
 from app.routers.cases import get_case
 
 router = APIRouter(tags=["verify"])
@@ -49,6 +49,13 @@ def check_evidence(db: Session, ev: Evidence) -> dict:
         checks["trusted_timestamp"] = {"ok": ok, "detail": f"existed by {ev.tsa_time} (RFC 3161)" if ok else "timestamp token does not verify"}
     else:
         checks["trusted_timestamp"] = {"ok": None, "detail": f"timestamp {ev.tsa_status}"}
+
+    kept = {e.details["questioned_sha256"] for e in db.scalars(select(CustodyEntry).where(
+        CustodyEntry.evidence_id == ev.id, CustodyEntry.action == "COMPARED")) if e.details.get("kept")}
+    if kept:
+        bad = [s for s in kept if not storage.exists(s) or hashlib.sha256(storage.load(s)).hexdigest() != s]
+        checks["kept_copies"] = {"ok": not bad, "detail": f"{len(kept)} compared cop{'y' if len(kept) == 1 else 'ies'} kept and unchanged"
+                                 if not bad else f"{len(bad)} kept cop{'y is' if len(bad) == 1 else 'ies are'} missing or changed"}
 
     ok = all(c["ok"] is not False for c in checks.values())
     return {"evidence_id": ev.id, "filename": ev.filename, "sha256": ev.sha256, "ok": ok, "checks": checks}

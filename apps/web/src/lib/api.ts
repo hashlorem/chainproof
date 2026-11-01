@@ -67,6 +67,8 @@ export interface Examination {
   comparisons: {
     seq: number; ts: string; by: string; filename: string; sha256: string; distance: number;
     changed_ratio: number; regions: number; aligned: string | null; overlay: string | null;
+    /** The questioned file itself is stored (comparisons from 1 Nov 2026 on). */
+    kept: boolean;
   }[];
   conclusion: {
     seq: number; ts: string; by: string; by_id: string; question: string; h1: string; h2: string;

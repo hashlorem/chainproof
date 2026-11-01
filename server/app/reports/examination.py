@@ -139,6 +139,8 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
                 ["Result", Paragraph(f'<font color="{(BAD if c["regions"] else OK).hexval()}"><b>{outcome}</b></font>', SMALL)],
                 ["Match", _p(f"fingerprint {c['distance']}/64 bits apart · {c.get('aligned') or 'aligned'}")],
                 ["By", _p(f"{c['by']} · {_ts(c['ts'])} (custody entry #{c['seq']})")],
+                ["Exhibit", _p("copy kept with this item, re-hashed whenever it is downloaded" if c.get("kept")
+                               else "only the hash was kept (compared before copies were stored)")],
             ], [22 * mm, 82 * mm], header=False)]], colWidths=[74 * mm, 106 * mm],
                 style=[("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]), Spacer(1, 3 * mm)]))
         if len(comparisons) > 4:

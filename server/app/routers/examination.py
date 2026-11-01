@@ -84,7 +84,8 @@ def examination_state(db: Session, ev: Evidence) -> dict:
             d = e.details
             comparisons.append({"seq": e.seq, "ts": e.ts, "by": by, "filename": d.get("questioned_filename") or "unnamed copy",
                                 "sha256": d["questioned_sha256"], "distance": d["distance"], "changed_ratio": d["changed_ratio"],
-                                "regions": d["regions"], "aligned": d.get("aligned"), "overlay": d.get("overlay")})
+                                "regions": d["regions"], "aligned": d.get("aligned"), "overlay": d.get("overlay"),
+                                "kept": bool(d.get("kept"))})
         elif e.action == "REVIEWED" and conclusion and e.details.get("conclusion_seq") == conclusion["seq"]:
             review = {"seq": e.seq, "ts": e.ts, "by": by, "agrees": e.details["agrees"], "comment": e.details["comment"]}
     return {"question": (conclusion or {}).get("question"), "notes": notes, "comparisons": comparisons, "conclusion": conclusion,

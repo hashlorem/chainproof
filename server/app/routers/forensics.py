@@ -15,8 +15,8 @@ from app.forensics import rates
 from app.forensics.common import open_rgb
 from app.forensics.similarity import MATCH_DISTANCE, SAME_SCENE, VERIFY_DISTANCE, closest, compare, image_phash, phash, phashes, same_scene
 from app.forensics.verdict import run_all, split_images
-from app.models import Case, Device, Evidence, User
-from app.routers.evidence import get_evidence
+from app.models import Case, CustodyEntry, Device, Evidence, User
+from app.routers.evidence import get_evidence, safe_filename
 
 router = APIRouter(tags=["forensics"])
 MAX_ANALYZE = 40 * 1024 * 1024
@@ -146,12 +146,33 @@ async def compare_with_evidence(evidence_id: str, file: UploadFile = File(...), 
     sha = hashlib.sha256(data).hexdigest()
     result |= {"questioned_sha256": sha, "distance": closest(phashes(questioned), phash(original)),
                "validation": rates.describe_difference()}
-    # Keep the difference map with the evidence (like the ELA heatmap) so the examination report can show it.
+    # Keep the difference map with the evidence (like the ELA heatmap) so the examination report can show it, and
+    # keep the questioned copy itself: it is now an exhibit, and without it nobody could repeat the comparison.
+    # The copy goes in the same content-addressed, read-only store as the originals, under its own hash.
     overlay = f"compare-{sha[:16]}.png"
     storage.save_derived(ev.id, overlay, base64.b64decode(result["overlay_png"]))
+    storage.save(sha, data)
     append_entry(db, ev.case_id, "COMPARED", user.id, ev.id, {
         "questioned_sha256": sha, "questioned_filename": (file.filename or "")[:200], "distance": result["distance"],
         "changed_ratio": result["changed_ratio"], "regions": len(result["regions"]), "aligned": result["aligned"],
-        "overlay": overlay})
+        "overlay": overlay, "kept": True})
     db.commit()
     return result
+
+
+@router.get("/evidence/{evidence_id}/compared/{sha256}")
+def compared_copy(evidence_id: str, sha256: str, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """A questioned copy kept from a comparison. Downloading it is logged like the original, and it is re-hashed first."""
+    ev = get_evidence(db, evidence_id)
+    entry = next((e for e in db.scalars(select(CustodyEntry).where(CustodyEntry.evidence_id == ev.id, CustodyEntry.action == "COMPARED"))
+                  if e.details.get("questioned_sha256") == sha256 and e.details.get("kept")), None)
+    data = storage.load(sha256) if entry and storage.exists(sha256) else None
+    if data is None:
+        raise HTTPException(404, "No kept copy with that hash (comparisons before 1 Nov 2026 kept only the hash)")
+    if hashlib.sha256(data).hexdigest() != sha256:
+        raise HTTPException(409, "The kept copy no longer matches the hash recorded when it was compared")
+    append_entry(db, ev.case_id, "DOWNLOADED", user.id, ev.id, {"compared_copy": sha256})
+    db.commit()
+    name = entry.details.get("questioned_filename") or f"copy-{sha256[:12]}"
+    return Response(data, media_type="application/octet-stream", headers={
+        "Content-Disposition": f'attachment; filename="{safe_filename(name)}"', "X-Content-SHA256": sha256})

@@ -77,6 +77,15 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
       a.click();
       URL.revokeObjectURL(a.href);
     });
+  const downloadCopy = (sha256: string, filename: string) =>
+    run(`copy-${sha256}`, async () => {
+      const { blob } = await api.blob(`/evidence/${evidenceId}/compared/${sha256}`);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
   const startConclusion = () => {
     if (c) setForm({ h1: c.h1, h2: c.h2, level: c.level_key, rationale: c.rationale, limitations: c.limitations });
     setConcluding(true);
@@ -120,16 +129,20 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
             <h3 className="heading text-lg">Comparisons with copies</h3>
             <ol className="divide-y divide-border border border-rule">
               {exam.comparisons.map((c) => (
-                <li key={c.seq} className="grid gap-1 p-3 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center">
+                <li key={c.seq} className="grid gap-2 p-3 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto_auto] sm:items-center">
                   <span className="eyebrow">#{c.seq} · {formatTs(c.ts)}<br />{c.by}</span>
                   <span className="truncate">{c.filename} <span className="font-mono text-xs text-muted">{c.sha256.slice(0, 12)}…</span></span>
                   {c.regions > 0
                     ? <Pill tone="bad">{`${c.regions} changed region(s) · ${(c.changed_ratio * 100).toFixed(1)}%`}</Pill>
                     : <Pill tone="ok">No changes</Pill>}
+                  {c.kept
+                    ? <Button variant="ghost" onClick={() => downloadCopy(c.sha256, c.filename)} busy={busy === `copy-${c.sha256}`}
+                              title="The questioned file, kept with this item. Downloading is logged.">Download copy</Button>
+                    : <span className="text-xs text-muted" title="Compared before copies were kept">hash only</span>}
                 </li>
               ))}
             </ol>
-            <p className="text-xs text-muted">Difference maps are included in the examination report.</p>
+            <p className="text-xs text-muted">Each compared copy is kept with this item so the comparison can be repeated. Difference maps are in the examination report.</p>
           </section>
         )}
 
