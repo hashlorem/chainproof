@@ -17,7 +17,7 @@ export default function AccountPage() {
   return (
     <div className="max-w-md space-y-6">
       <div>
-        <h1 className="heading text-4xl">Your account</h1>
+        <h1 className="heading text-2xl">Your account</h1>
         <p className="text-sm text-muted">{user?.name} · {user?.email} · <span className="capitalize">{user?.role}</span></p>
       </div>
       <Card title="Change password">

@@ -18,7 +18,7 @@ export default function DevicesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="heading text-4xl">Devices</h1>
+        <h1 className="heading text-2xl">Devices</h1>
         <p className="text-sm text-muted">
           Each phone makes its own Ed25519 signing key when it is enrolled. The private key never leaves the phone. Revoke a lost or stolen phone here.
         </p>

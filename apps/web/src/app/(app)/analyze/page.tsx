@@ -69,7 +69,7 @@ export default function AnalyzePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="heading text-4xl">Check a photo</h1>
+        <h1 className="heading text-2xl">Check a photo</h1>
         <p className="text-sm text-muted">
           Look for signs of editing in any image: a tip from the public, a screenshot from social media, a photo from a suspect&apos;s phone.
           Nothing is saved and nothing is added to a case.
@@ -94,14 +94,14 @@ export default function AnalyzePage() {
             copymove={report.checks.copy_move.overlay_jpg ? { kind: "b64", data: report.checks.copy_move.overlay_jpg, mime: "image/jpeg" } : null}
           />
           {matches && (
-            <div className="mt-6 space-y-3 border-t-2 border-rule pt-4">
+            <div className="mt-6 space-y-3 border-t border-border pt-4">
               <h3 className="heading text-lg">Copies of your evidence</h3>
               {matches.matches.length === 0 ? (
                 <p className="text-sm text-muted">This photo doesn&apos;t look like any image held as evidence, even allowing for re-saving, resizing or rotation.</p>
               ) : (
                 <ul className="space-y-3">
                   {matches.matches.map((m) => (
-                    <li key={m.evidence_id} className="space-y-2 border-2 border-rule p-3">
+                    <li key={m.evidence_id} className="space-y-2 rounded-lg border border-border p-3">
                       <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                         <span>
                           <Link href={`/evidence/${m.evidence_id}`} className="font-semibold underline">{m.filename}</Link>
@@ -120,7 +120,7 @@ export default function AnalyzePage() {
             </div>
           )}
           {canWrite && (
-            <div className="mt-6 space-y-2 border-t-2 border-rule pt-4">
+            <div className="mt-6 space-y-2 border-t border-border pt-4">
               <h3 className="heading text-lg">Investigate this photo properly</h3>
               <p className="text-sm text-muted">
                 A quick check isn&apos;t recorded anywhere. To keep notes, record a conclusion, get it reviewed and export a report,

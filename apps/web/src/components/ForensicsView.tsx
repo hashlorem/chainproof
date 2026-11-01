@@ -37,7 +37,7 @@ export function ForensicsView({ report, original, ela, copymove }: {
 
   return (
     <div className="space-y-4">
-      <div className={cx("border-2 p-4", tone === "ok" ? "border-ok bg-surface" : tone === "warn" ? "border-warn bg-surface" : "border-bad bg-bad-bg")}>
+      <div className={cx("rounded-lg p-4", tone === "ok" ? "bg-ok-bg" : tone === "warn" ? "bg-warn-bg" : "bg-bad-bg")}>
         <div className={cx("heading text-2xl", tone === "ok" ? "text-ok" : tone === "warn" ? "text-warn" : "text-bad")}>{report.label}</div>
         <p className="text-sm text-muted">{report.disclaimer}</p>
         {report.validation !== undefined && (
@@ -53,12 +53,12 @@ export function ForensicsView({ report, original, ela, copymove }: {
         <div className="space-y-2">
           <div className="flex flex-wrap gap-0">
             {tabs.map((t) => (
-              <button key={t.id} onClick={() => setTab(t.id)} className={cx("min-h-9 border border-rule px-3 text-xs uppercase tracking-[0.08em]", t.id === current?.id ? "bg-accent text-accent-ink" : "hover:bg-surface-2")}>
+              <button key={t.id} onClick={() => setTab(t.id)} className={cx("min-h-9 rounded-md border border-border px-3 text-xs", t.id === current?.id ? "bg-accent text-accent-ink" : "hover:bg-surface-2")}>
                 {t.label}
               </button>
             ))}
           </div>
-          <div className="overflow-hidden border border-rule bg-black/5">
+          <div className="overflow-hidden rounded-md border border-border bg-black/5">
             {current?.src?.kind === "b64" ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={`data:${current.src.mime ?? "image/png"};base64,${current.src.data}`} alt={current.label} className="w-full" />
@@ -80,7 +80,7 @@ export function ForensicsView({ report, original, ela, copymove }: {
             ) : (
               <ul className="space-y-2">
                 {report.findings.map((f, i) => (
-                  <li key={i} className="border border-rule p-2.5">
+                  <li key={i} className="rounded-md border border-border p-2.5">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Pill tone={SEVERITY_TONE[f.severity]}>{f.severity}</Pill> {f.title}
                     </div>

@@ -77,3 +77,14 @@ for r in (auth, devices, cases, evidence, examination, forensics, reports, verif
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.get("/meta")
+def meta():
+    """For the status bar: which build is running and which validation its error rates come from. No secrets."""
+    from app.forensics import rates
+    from app.routers.examination import _tool_versions
+
+    r = rates.load()
+    images = (r["checks"]["verdict_any"]["false_alarm"]["n"] + r["checks"]["verdict_any"]["detection"]["n"]) if r else None
+    return {"commit": _tool_versions()[0], "validated_at": r and r["validated_at"], "validation_images": images}

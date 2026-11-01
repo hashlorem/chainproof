@@ -11,7 +11,7 @@ export function CompareView({ result }: { result: CompareResult }) {
   const changed = result.regions.length > 0;
   return (
     <div className="space-y-3">
-      <div className={cx("border-2 p-3", changed ? "border-bad bg-bad-bg" : "border-ok")}>
+      <div className={cx("rounded-lg p-3", changed ? "bg-bad-bg" : "bg-ok-bg")}>
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Pill tone={changed ? "bad" : "ok"}>{changed ? "Changed" : "No changes"}</Pill> {f.title}
         </div>
@@ -21,7 +21,7 @@ export function CompareView({ result }: { result: CompareResult }) {
         )}
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`data:image/png;base64,${result.overlay_png}`} alt="Difference map: changed areas outlined in red" className="w-full border border-rule" />
+      <img src={`data:image/png;base64,${result.overlay_png}`} alt="Difference map: changed areas outlined in red" className="w-full rounded-md border border-border" />
       <p className="text-xs text-muted">
         The copy, {result.aligned}, with areas that differ from the stored original tinted and outlined in red ·
         fingerprint distance {result.distance}/64 · copy SHA-256 <span className="font-mono">{result.questioned_sha256.slice(0, 16)}…</span>
@@ -31,7 +31,7 @@ export function CompareView({ result }: { result: CompareResult }) {
 }
 
 /** "Compare a copy with this original": drop a questioned file, get the difference map. Logged in custody as COMPARED. */
-export function ComparePanel({ evidenceId, initialFile }: { evidenceId: string; initialFile?: File | null }) {
+export function ComparePanel({ evidenceId, initialFile, onCompared }: { evidenceId: string; initialFile?: File | null; onCompared?: () => void }) {
   const [result, setResult] = useState<CompareResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +43,7 @@ export function ComparePanel({ evidenceId, initialFile }: { evidenceId: string; 
       const fd = new FormData();
       fd.append("file", file);
       setResult(await api.post<CompareResult>(`/evidence/${evidenceId}/compare`, fd));
+      onCompared?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -63,7 +64,7 @@ export function ComparePanel({ evidenceId, initialFile }: { evidenceId: string; 
       ) : (
         <Dropzone onFile={compare} accept="image/*">
           <div>
-            <p className="font-semibold uppercase tracking-[0.06em]">Drop a copy to compare</p>
+            <p className="font-semibold">Drop a copy to compare</p>
             <p className="text-muted">A photo that is circulating, was sent in, or was found on a device. The comparison is recorded in the chain of custody.</p>
           </div>
         </Dropzone>

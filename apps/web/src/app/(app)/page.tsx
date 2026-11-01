@@ -26,15 +26,15 @@ export default function CasesPage() {
       ) : cases?.length === 0 ? (
         <Card><p className="text-sm text-muted">No cases yet.{canCreate && " Create one, then capture evidence from the ChainProof phone app."}</p></Card>
       ) : (
-        <div className="overflow-x-auto border-2 border-rule bg-surface">
+        <div className="overflow-x-auto rounded-lg border border-border bg-surface">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="eyebrow text-left">
-                <th className="border-b-2 border-rule px-4 py-2.5 font-medium">Case no.</th>
-                <th className="border-b-2 border-rule px-3 py-2.5 font-medium">Title</th>
-                <th className="border-b-2 border-rule px-3 py-2.5 font-medium">Status</th>
-                <th className="border-b-2 border-rule px-3 py-2.5 text-right font-medium">Items</th>
-                <th className="border-b-2 border-rule px-4 py-2.5 font-medium">Opened</th>
+                <th className="border-b border-border px-4 py-2.5 font-medium">Case no.</th>
+                <th className="border-b border-border px-3 py-2.5 font-medium">Title</th>
+                <th className="border-b border-border px-3 py-2.5 font-medium">Status</th>
+                <th className="border-b border-border px-3 py-2.5 text-right font-medium">Items</th>
+                <th className="border-b border-border px-4 py-2.5 font-medium">Opened</th>
               </tr>
             </thead>
             <tbody>

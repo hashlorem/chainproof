@@ -10,6 +10,7 @@ import { Dropzone } from "@/components/Dropzone";
 import { MapView, type MapPoint } from "@/components/MapView";
 import { Button, Card, CheckPill, ErrorBox, Hash, Loading, Pill, cx, inputClass } from "@/components/ui";
 import { api, formatBytes, formatTs, type Case, type CustodyResponse, type Evidence, type User, type Verification } from "@/lib/api";
+import { useStatusCase } from "@/components/Shell";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
 
@@ -28,6 +29,7 @@ export default function CasePage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [panel, setPanel] = useState<"transfer" | "close" | "reopen" | null>(null);
+  useStatusCase(id);
 
   const users = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
   const c = caseQ.data;
@@ -95,17 +97,17 @@ export default function CasePage() {
 
   return (
     <div className="space-y-6">
-      <nav className="flex gap-3 text-xs uppercase tracking-[0.08em] text-muted" aria-label="Breadcrumb">
+      <nav className="flex gap-2 text-[13px] text-muted" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-ink hover:underline">Cases</Link>
         <span aria-hidden>/</span>
         <span>{c.id.slice(0, 8).toUpperCase()}</span>
       </nav>
 
-      <section aria-label="Case record" className="border-2 border-rule bg-surface">
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-rule px-5 py-5">
+      <section aria-label="Case record" className="rounded-lg border border-border bg-surface">
+        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border px-5 py-5">
           <div className="min-w-0 max-w-3xl space-y-2">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-bad">Chain of custody record</div>
-            <h1 className="heading text-4xl sm:text-5xl">{c.title}</h1>
+            <div className="eyebrow">Chain of custody record</div>
+            <h1 className="heading text-2xl sm:text-[28px]">{c.title}</h1>
             {c.description && <p className="text-sm text-muted">{c.description}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -142,8 +144,8 @@ export default function CasePage() {
 
       <div className="grid items-start gap-6 lg:grid-cols-[1.8fr_1fr]">
         <div className="min-w-0 space-y-6">
-          <section aria-label="Evidence items" className="border-2 border-rule bg-surface">
-            <header className="flex items-center justify-between gap-3 border-b-2 border-rule px-4 py-3">
+          <section aria-label="Evidence items" className="rounded-lg border border-border bg-surface">
+            <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
               <h2 className="heading text-xl">Evidence items · {c.evidence.length}</h2>
             </header>
             {c.evidence.length === 0 ? (
@@ -152,10 +154,10 @@ export default function CasePage() {
               <EvidenceTable evidence={c.evidence} checksById={checksById} />
             )}
             {canWrite && isOpen && (
-              <div className="border-t border-rule p-4">
+              <div className="border-t border-border p-4">
                 <Dropzone onFile={importFile} disabled={busy === "upload"}>
                   <div>
-                    <p className="font-semibold uppercase tracking-[0.06em]">{busy === "upload" ? "Uploading…" : "Import a file"}</p>
+                    <p className="font-semibold">{busy === "upload" ? "Uploading…" : "Import a file"}</p>
                     <p className="text-muted">Drop a file or click to choose. Imported files have no capture signature. Use the phone app for signed evidence.</p>
                   </div>
                 </Dropzone>
@@ -196,10 +198,10 @@ function EvidenceTable({ evidence, checksById }: { evidence: Evidence[]; checksB
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr className="eyebrow text-left">
-            <th className="border-b border-rule px-4 py-2 font-medium">Item</th>
-            <th className="border-b border-rule px-3 py-2 font-medium">File · SHA-256</th>
-            <th className="border-b border-rule px-3 py-2 font-medium">Origin</th>
-            <th className="border-b border-rule px-4 py-2 font-medium">Findings</th>
+            <th className="border-b border-border px-4 py-2 font-medium">Item</th>
+            <th className="border-b border-border px-3 py-2 font-medium">File · SHA-256</th>
+            <th className="border-b border-border px-3 py-2 font-medium">Origin</th>
+            <th className="border-b border-border px-4 py-2 font-medium">Findings</th>
           </tr>
         </thead>
         <tbody>
@@ -212,11 +214,11 @@ function EvidenceTable({ evidence, checksById }: { evidence: Evidence[]; checksB
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <span className="w-6 text-base font-semibold">{String(i + 1).padStart(2, "0")}</span>
-                    <Link href={`/evidence/${e.id}`} className="block size-[52px] shrink-0 border border-rule bg-surface-2" aria-label={`Open ${e.filename}`}>
+                    <Link href={`/evidence/${e.id}`} className="block size-[52px] shrink-0 rounded-md border border-border bg-surface-2" aria-label={`Open ${e.filename}`}>
                       {e.mime.startsWith("image/") ? (
                         <AuthedImage path={`/evidence/${e.id}/thumbnail.jpg`} alt="" className="size-full object-cover" />
                       ) : (
-                        <span className="grid size-full place-items-center text-[10px] uppercase tracking-[0.08em] text-muted">{e.mime.startsWith("video/") ? "Video" : "File"}</span>
+                        <span className="grid size-full place-items-center text-[10px] font-semibold text-muted">{e.mime.startsWith("video/") ? "Video" : "File"}</span>
                       )}
                     </Link>
                   </div>
@@ -253,8 +255,8 @@ function EvidenceTable({ evidence, checksById }: { evidence: Evidence[]; checksB
 function IntegrityStrip({ v, local, onVerify, busy }: { v: Verification | null; local: ChainCheck | null; onVerify: () => void; busy: boolean }) {
   if (!v) {
     return (
-      <section aria-label="Integrity check" className="flex flex-wrap items-center gap-x-6 gap-y-3 border-2 border-rule bg-surface px-5 py-4">
-        <div className="heading border-2 border-rule px-4 py-2 text-2xl">Not checked</div>
+      <section aria-label="Integrity check" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-border bg-surface px-5 py-4">
+        <div className="heading rounded-lg border border-border px-4 py-2 text-2xl">Not checked</div>
         <p className="min-w-60 flex-1 text-sm text-muted">
           Verify re-hashes every stored file, checks each device signature and timestamp, and walks the custody chain. Your browser then re-checks the chain on its own.
         </p>
@@ -272,9 +274,9 @@ function IntegrityStrip({ v, local, onVerify, busy }: { v: Verification | null; 
   const unsigned = v.evidence.length - sig.total;
   const failures = v.evidence.filter((e) => !e.ok);
   return (
-    <section aria-label="Integrity check" className={cx("border-2 bg-surface", v.ok ? "border-rule" : "border-bad")}>
+    <section aria-label="Integrity check" className={cx("rounded-lg bg-surface", !v.ok && "ring-1 ring-bad")}>
       <div className="flex flex-wrap items-center gap-x-7 gap-y-3 px-5 py-4">
-        <div className={cx("flex items-center gap-3 border-2 px-4 py-2", v.ok ? "border-ok text-ok" : "border-bad bg-bad-bg text-bad")}>
+        <div className={cx("flex items-center gap-3 rounded-md px-3.5 py-2", v.ok ? "bg-ok-bg text-ok" : "bg-bad-bg text-bad")}>
           <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
             {v.ok ? <path d="M4 12l5 5L20 6" /> : <path d="M6 6l12 12M18 6L6 18" />}
           </svg>

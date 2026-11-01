@@ -63,7 +63,7 @@ export function CustodyTimeline({ entries, users, brokenAt, evidenceNames }: {
     <ol className="-m-4">
       {hidden > 0 && (
         <li className="border-b border-border px-4 py-2">
-          <button type="button" onClick={() => setShowAll(true)} className="min-h-9 text-xs uppercase tracking-[0.08em] underline underline-offset-4">
+          <button type="button" onClick={() => setShowAll(true)} className="min-h-9 text-[13px] text-accent hover:underline underline-offset-4">
             Show {hidden} earlier entries
           </button>
         </li>
@@ -77,7 +77,7 @@ export function CustodyTimeline({ entries, users, brokenAt, evidenceNames }: {
             <span className={cx("font-semibold", first && "text-bad")}>#{e.seq}</span>
             <div className="min-w-0 text-xs">
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="text-sm font-semibold uppercase tracking-[0.04em]">{ACTION_LABEL[e.action] ?? e.action}</span>
+                <span className="text-[13px] font-semibold">{ACTION_LABEL[e.action] ?? e.action}</span>
                 {e.evidence_id && (
                   <Link href={`/evidence/${e.evidence_id}`} className="underline underline-offset-4 hover:text-bad">
                     {evidenceNames.get(e.evidence_id) ?? "evidence"}

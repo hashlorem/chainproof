@@ -138,8 +138,12 @@ export function formatBytes(n: number) {
   return `${(n / 1024 ** 2).toFixed(1)} MB`;
 }
 
+/** "1 Nov 2026, 14:07:12 UTC". Always UTC: time is evidence, and every examiner must read the same clock. */
 export function formatTs(ts: string | null | undefined) {
   if (!ts) return "—";
   const d = new Date(ts);
-  return isNaN(d.getTime()) ? ts : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
+  if (isNaN(d.getTime())) return ts;
+  return d.toLocaleString("en-GB", {
+    timeZone: "UTC", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }) + " UTC";
 }
