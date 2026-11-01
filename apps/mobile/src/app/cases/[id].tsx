@@ -46,7 +46,7 @@ export default function CaseScreen() {
               {!!data?.description && <T muted size={12}>{data.description}</T>}
               {error && <ErrorText>{error}</ErrorText>}
             </View>
-            <View style={[styles.stats, { borderColor: t.rule }]}>
+            <View style={[styles.stats, { backgroundColor: t.surface }]}>
               <Stat label="Items" value={uploaded.length + pending.length} />
               <Stat label="Signed" value={signed} divider />
               <Stat label="Queue" value={pending.length} divider />
@@ -80,7 +80,7 @@ export default function CaseScreen() {
                   <MediaBadge mime={e.mime} />
                 )
               }
-              status={flagged ? <Pill tone="bad">Edited?</Pill> : <Pill>{e.provenance === "device_signed" ? "Signed" : "Imported"}</Pill>}
+              status={flagged ? <Pill tone="bad">Edited?</Pill> : e.provenance === "device_signed" ? <Pill tone="ok">Signed</Pill> : <Pill tone="warn">Imported</Pill>}
             >
               <T weight="600" numberOfLines={1}>{e.filename}</T>
               <T size={11} muted numberOfLines={1}>
@@ -104,9 +104,8 @@ export default function CaseScreen() {
 }
 
 function Stat({ label, value, divider }: { label: string; value: number; divider?: boolean }) {
-  const t = useTheme();
   return (
-    <View style={{ flex: 1, paddingVertical: 10, paddingHorizontal: 20, borderLeftWidth: divider ? 1 : 0, borderColor: t.rule }}>
+    <View style={{ flex: 1, paddingLeft: divider ? 16 : 0 }}>
       <Label>{label}</Label>
       <T size={18} weight="600">{value}</T>
     </View>
@@ -125,8 +124,8 @@ function ItemRow({ n, thumb, status, flagged, children }: { n: string; thumb: Re
   );
 }
 
-const VERDICT_TONE: Record<string, "ok" | "warn" | "bad"> = {
-  "Verified capture": "ok", "No signs of manipulation": "ok", Suspicious: "warn", "Likely manipulated": "bad", "AI-generated": "bad",
+const VERDICT_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = {
+  "Verified capture": "ok", "No signs of manipulation": "neutral", Suspicious: "warn", "Likely manipulated": "bad", "AI-generated": "bad",
 };
 
 function MediaBadge({ mime }: { mime: string }) {
@@ -139,7 +138,7 @@ function MediaBadge({ mime }: { mime: string }) {
 
 const styles = StyleSheet.create({
   head: { borderBottomWidth: StyleSheet.hairlineWidth },
-  stats: { flexDirection: "row", borderTopWidth: 1 },
+  stats: { flexDirection: "row", marginHorizontal: 16, marginBottom: 14, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12 },
   row: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 12, paddingHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth },
   thumb: { width: 56, height: 56, borderRadius: 8, overflow: "hidden" },
   thumbImg: { width: "100%", height: "100%" },

@@ -6,8 +6,9 @@ import { api, type ForensicReport } from "@/lib/api";
 import { useTheme } from "@/lib/theme";
 import { Button, Card, ErrorText, H, Pill, T, toneColors } from "@/ui";
 
-const VERDICT_TONE: Record<string, "ok" | "warn" | "bad"> = {
-  verified_capture: "ok", no_signs: "ok", suspicious: "warn", likely_manipulated: "bad", ai_generated: "bad",
+// Green only for a verified capture: "no signs" is not proof of authenticity, so it stays neutral.
+const VERDICT_TONE: Record<string, "ok" | "warn" | "bad" | "neutral"> = {
+  verified_capture: "ok", no_signs: "neutral", suspicious: "warn", likely_manipulated: "bad", ai_generated: "bad",
 };
 const SEVERITY_TONE = { info: "info", low: "neutral", medium: "warn", high: "bad" } as const;
 
@@ -61,8 +62,8 @@ export default function Check() {
             <Button title="ELA" variant={view === "ela" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("ela")} disabled={!report.checks.ela.heatmap_png} />
             <Button title="Clones" variant={view === "clones" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("clones")} disabled={!(report.checks.copy_move.overlay_jpg ?? report.checks.copy_move.overlay_png)} />
           </View>
-          <Card style={{ backgroundColor: bg, gap: 4 }}>
-            <H size={24} style={{ color: fg }}>{report.label}</H>
+          <Card style={{ backgroundColor: tone === "neutral" ? t.surface : bg, gap: 4 }}>
+            <H size={24} style={{ color: tone === "neutral" ? t.ink : fg }}>{report.label}</H>
             <T size={13} muted>{report.disclaimer}</T>
           </Card>
           {report.findings.map((f, i) => (

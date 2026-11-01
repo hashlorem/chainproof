@@ -44,7 +44,6 @@ export default function Cases() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} />}
         ListHeaderComponent={
           <View style={{ gap: 12, padding: 16, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: t.rule }}>
-            <Label>Open cases · tap one to capture evidence</Label>
             {queue.length > 0 && (
               <Pressable onPress={() => router.push("/queue")}>
                 <Card style={{ backgroundColor: t.warnBg }}>
@@ -55,6 +54,7 @@ export default function Cases() {
             )}
             <Button title="Check a photo for editing" variant="secondary" onPress={() => router.push("/check")} />
             {error && <ErrorText>{error}</ErrorText>}
+            <Label style={{ marginTop: 8 }}>Open cases · tap one to capture evidence</Label>
           </View>
         }
         ListEmptyComponent={cases ? <T muted style={{ padding: 16 }}>No open cases. Create one in the web app.</T> : null}
