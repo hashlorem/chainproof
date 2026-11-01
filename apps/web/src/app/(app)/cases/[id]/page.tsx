@@ -285,11 +285,22 @@ function IntegrityStrip({ v, local, onVerify, busy }: { v: Verification | null; 
           <Stat label="Device signatures">{sig.ok} of {sig.total} valid{unsigned > 0 && ` · ${unsigned} imported`}</Stat>
           <Stat label="Trusted timestamps">{tsa.ok} of {tsa.total}</Stat>
           <Stat label="Files re-hashed">{files.ok} of {files.total} match</Stat>
+          {v.anchors && (
+            <Stat label="Log anchored">
+              {v.anchors.ok === null ? "Not yet" : v.anchors.ok ? `Up to #${v.anchors.latest?.head_seq}` : <span className="text-bad">Doesn&apos;t match</span>}
+            </Stat>
+          )}
         </dl>
         <Button variant="secondary" onClick={onVerify} busy={busy} className="ml-auto">Verify again</Button>
       </div>
       <ul className="space-y-0.5 border-t border-border px-5 py-3 text-xs">
         {!v.chain.ok && <li className="font-semibold text-bad">Server: chain broken at entry #{v.chain.broken_at}: {v.chain.reason}.</li>}
+        {v.anchors?.problems.map((p) => <li key={p} className="font-semibold text-bad">Trusted timestamp: {p}.</li>)}
+        {v.anchors?.ok && v.anchors.latest && (
+          <li className="text-muted">
+            Entries up to #{v.anchors.latest.head_seq} were timestamped by FreeTSA at {formatTs(v.anchors.latest.tsa_time)}. A rewrite of anything before that, even re-signed with the server key, would no longer match.
+          </li>
+        )}
         {local && (
           <li className={local.ok ? "text-muted" : "font-semibold text-bad"}>
             Re-checked in this browser:{" "}

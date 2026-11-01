@@ -12,6 +12,7 @@ from reportlab.platypus import Image, KeepTogether, PageBreak, Paragraph, Simple
 
 from app import storage
 from app.config import settings
+from app.core.anchor import describe as describe_anchors
 
 styles = getSampleStyleSheet()
 SMALL = ParagraphStyle("small", parent=styles["BodyText"], fontSize=8, leading=10)
@@ -90,6 +91,8 @@ def build_report(case, evidence, chain, verification, users: dict, generated_by,
                else f"broken at entry #{verification['chain']['broken_at']}: {verification['chain']['reason']}."),
             styles["BodyText"],
         ),
+        Paragraph(f"Trusted timestamp of the log: {describe_anchors(verification['anchors'])}. Anyone can later check that "
+                  "this hash still sits at that entry: a rewritten log can't match it.", SMALL),
         Spacer(1, 4 * mm),
         Paragraph("Evidence", styles["Heading2"]),
     ]

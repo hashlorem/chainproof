@@ -113,7 +113,7 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 77 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
+cd server && uv run pytest                # 83 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
                                           #   examinations, and a validation regression gate on six real photos
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
 
@@ -210,12 +210,18 @@ uv run pytest tests/test_migrations.py                              # fails if m
 
 1. **Capture.** On the phone, open a case and take 2–3 photos and a short video. Point out "Signed and queued" and the hash.
 2. **Offline.** Turn on airplane mode and take a photo. It waits in the queue. Turn airplane mode off and it uploads, with the signature still valid.
-3. **Web.** Open the case. Show the map, the custody timeline and the "Timestamped" badges. Click **Verify integrity**: all green, and checked a second time *in the browser*.
+3. **Web.** Open the case. Show the map, the custody timeline and the "Timestamped" badges. Click **Verify integrity**: all green, and checked a second time *in the browser*. Verify also sends the newest entry's hash to FreeTSA ("Log anchored").
 4. **Attack.** As the "insider with database access":
    ```bash
    cd server && uv run python -m scripts.tamper_demo --smart
    ```
    Click **Verify** again. The timeline turns red at the exact entry that was forged.
+   Then play the laptop's owner, who also has the server's signing key:
+   ```bash
+   uv run python -m scripts.tamper_demo --resign
+   ```
+   Every hash is recomputed and re-signed, so the chain itself checks out again. Click **Verify**: it still fails, because
+   the FreeTSA timestamp from step 3 no longer matches, and a new one would carry today's date.
 5. **Forensics.** Import an edited photo, for example one with a cloned area, then click **Run analysis**. It shows "Likely manipulated" with the clone highlighted, and how often that check is wrong.
    Add a note, record a conclusion as the investigator, review it as the supervisor, and export the examination report.
 6. **Copies.** In **Check a photo**, drop the edited copy of a photo whose original is in a case. ChainProof finds the

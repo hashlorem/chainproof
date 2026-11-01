@@ -40,8 +40,8 @@ def _p(text: str, style=SMALL) -> Paragraph:
 
 def build_examination(subject: dict, report: dict, images: dict, method: dict, examination: dict | None = None) -> bytes:
     """
-    subject: filename, sha256, size, mime, source, acquired_at, and optionally sha256_after (re-hash after analysis)
-             and provenance (text).
+    subject: filename, sha256, size, mime, source, acquired_at, and optionally sha256_after (re-hash after analysis),
+             provenance (text) and custody_anchor (the trusted timestamp that covers the custody log).
     report: the output of run_all() with images removed (split_images).
     images: {"original": bytes, "ela": png bytes, "copymove": png bytes}; any can be missing.
     method: tool, commit, versions, examined_at, examiner.
@@ -73,6 +73,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
         ["SHA-256 after analysis", _p(f"{after or '—'} ({integrity})", MONO)],
         ["Size / type", f"{subject['size']:,} bytes · {subject['mime']}"],
         ["Received", _p(subject.get("acquired_at") or "not recorded")],
+        ["Custody log anchor", _p(subject.get("custody_anchor") or "not recorded")],
     ], [38 * mm, 142 * mm], header=False), Spacer(1, 3 * mm)]
 
     # 2. File structure

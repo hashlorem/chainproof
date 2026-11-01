@@ -23,6 +23,7 @@ const ACTION_LABEL: Record<string, string> = {
   CONCLUDED: "Examiner conclusion",
   REVIEWED: "Technical review",
   COMPARED: "Compared with a copy",
+  ANCHORED: "Log anchored",
 };
 
 function describe(e: CustodyEntry, users: Map<string, User>): string | null {
@@ -42,6 +43,7 @@ function describe(e: CustodyEntry, users: Map<string, User>): string | null {
     case "REVIEWED": return d.agrees ? "Agrees with the conclusion" : "Does not agree with the conclusion";
     case "EXPORTED": return d.kind === "examination" ? "Examination report" : "Case report";
     case "COMPARED": return `${d.questioned_filename || "A copy"}: ${Number(d.regions) ? `${d.regions} changed region(s)` : "no changes found"}`;
+    case "ANCHORED": return `Entries up to #${d.head_seq} timestamped by FreeTSA, ${formatTs(String(d.tsa_time))}`;
     default: return null;
   }
 }

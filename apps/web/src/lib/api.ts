@@ -24,6 +24,8 @@ export interface EvidenceCheck { evidence_id: string; filename: string; sha256: 
 export interface Verification {
   ok: boolean;
   chain: { ok: boolean; length: number; broken_at: number | null; reason: string | null };
+  /** Trusted-timestamp anchors of the custody log (TM-001). ok is null when the log was never anchored. */
+  anchors?: { ok: boolean | null; count: number; latest: { seq: number; head_seq: number; head_hash: string; tsa_time: string } | null; problems: string[] };
   evidence: EvidenceCheck[];
 }
 export interface Finding {

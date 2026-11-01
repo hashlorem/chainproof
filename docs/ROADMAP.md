@@ -15,6 +15,7 @@ every examiner action in the append-only custody log, and every conclusion on a 
 | 2 | Copies of evidence: perceptual-hash search with scene-geometry confirmation, difference map, `COMPARED` custody entries | `server/app/forensics/similarity.py`, `server/app/routers/forensics.py` |
 | 2 | Comparisons with copies in the examination PDF | `server/app/reports/examination.py` |
 | 2 | Threat model and standards mapping | `docs/security/chainproof-threat-model.md`, `docs/security/standards-mapping.md` |
+| 2 | Custody log anchored to FreeTSA on every verify and export (TM-001); printed in both PDFs; `tamper_demo --resign` shows a re-signed rewrite being caught | `server/app/core/anchor.py` |
 | 2 | Security fixes TM-003, TM-004, TM-005, TM-011: `demo.sh` refuses demo passwords; tunnel visitors told apart by `CF-Connecting-IP`, password reset lifts a lockout; public verify capped at 210 MB and 30 lookups/min; *AI-generated* only from a C2PA signer on the official trust list | `demo.sh`, `server/app/core/security.py`, `server/app/main.py`, `server/app/forensics/c2pa_check.py`, `verdict.py` |
 
 ## Phase 2: still to do
@@ -39,7 +40,7 @@ presentation. AI detection moved to the friend (next section). Follow *Working i
 | TM-003 (rest) | Force a password change on first login (needs a migration: say so first) | medium | small |
 | TM-004 (rest) | Growing delays instead of a hard lockout | low | small |
 | TM-011 (rest) | Add forged-AI-metadata and self-signed-credential cases to the validation set; re-download the C2PA trust list now and then | low | small |
-| TM-001 | Timestamp the custody log's head with FreeTSA and print it in every report; key away from the database when hosted | high | medium |
+| TM-001 (rest) | Keep the server's signing key away from the database when hosted (separate secret store or HSM) | medium | medium |
 | TM-002 | Supervisor approval before a new device can sign; show enrolment date and approver in reports | high | medium |
 | TM-006 | Run image analysis in a worker process with time and memory limits; lower Pillow's pixel limit; `pip-audit` in CI | medium | medium |
 | TM-008 | Require the phone passcode when no biometrics are enrolled (new APK) | medium | small |

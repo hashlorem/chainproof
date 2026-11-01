@@ -13,11 +13,12 @@ account's device, not the scene (TM-002). During public demos, unchanged demo pa
 access (TM-003). The forensics layer can be steered: fake AI metadata makes a real photo read "AI-generated" (TM-011).
 Demo-day availability is fragile: one person can lock everyone out through the tunnel (TM-004).
 
-**Status, 31 Oct 2026 (branch `phase2`):** the four quick fixes are in, each with a test. The tables below describe the
+**Status, 1 Nov 2026 (branch `phase2`):** the four quick fixes and the main part of TM-001 are in, each with a test. The tables below describe the
 code as it was when this model was written; read them together with this list.
 
 | Threat | Now | Tested in |
 |---|---|---|
+| TM-001 | Every verify and report export timestamps the newest entry's hash with FreeTSA and appends it as an `ANCHORED` entry (`server/app/core/anchor.py`); both PDFs print it. A rewrite re-signed with the server key no longer matches the old anchors, and new anchors carry the rewrite's date. Entries after the latest anchor are still protected only by the key, and the key still sits next to the database | `tests/test_anchor.py`; live FreeTSA round trip; `tamper_demo --resign` on a throwaway database |
 | TM-003 | `demo.sh` refuses to start while any account uses `chainproof123`, and also stops if the check itself fails | gate run by hand; `scripts/check_demo_passwords.py` exits 3 |
 | TM-004 | Under `demo.sh`, login limits use Cloudflare's `CF-Connecting-IP` (`CHAINPROOF_TRUST_CF_CONNECTING_IP`, off by default because without Cloudflare anyone could send it); a supervisor's password reset lifts that account's lockout | `tests/test_security.py` |
 | TM-005 | `POST /public/verify` refused over 210 MB before parsing (Content-Length and a running byte count), hashed in 1 MB chunks; both public verify routes limited to 30 per minute per visitor | `tests/test_security.py` |

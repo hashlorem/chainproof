@@ -17,7 +17,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import storage
-from app.core.chain import append_entry
+from app.core.anchor import anchor_if_intact, check_anchors, describe as describe_anchors
+from app.core.chain import append_entry, load_chain
 from app.core.security import current_user, require_role
 from app.db import get_db
 from app.forensics import rates
@@ -146,6 +147,7 @@ def examination_report(evidence_id: str, user: User = Depends(current_user), db:
     ev = get_evidence(db, evidence_id)
     if not ev.forensics_json:
         raise HTTPException(409, "Run the forensic analysis first")
+    anchor_if_intact(db, ev.case_id, user.id)  # before the PDF, so the report prints the anchor that covers it
     state = examination_state(db, ev)
     commit, libs = _tool_versions()
     now = fmt_ts(utcnow())
@@ -157,6 +159,7 @@ def examination_report(evidence_id: str, user: User = Depends(current_user), db:
         "acquired_at": ev.received_at + (f" · trusted timestamp {ev.tsa_time}" if ev.tsa_time else ""),
         # The stored original is content-addressed; re-hash it now to show the copy examined is the evidence.
         "sha256_after": hashlib.sha256(storage.load(ev.storage_key)).hexdigest(),
+        "custody_anchor": describe_anchors(check_anchors(load_chain(db, ev.case_id))),
     }
     images = {"original": storage.load(ev.storage_key), "ela": storage.load_derived(ev.id, "ela.png"),
               "copymove": storage.load_derived(ev.id, "copymove.png")}

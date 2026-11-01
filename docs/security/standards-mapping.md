@@ -8,7 +8,7 @@ self-assessment for the course, not a certification: a real lab would also need 
 
 | Standard | What it asks for | Covered by ChainProof | Main gap |
 |---|---|---|---|
-| ISO/IEC 27037 | Identify, collect, acquire and preserve digital evidence so it stays unchanged and accounted for | Hash and sign at capture, trusted timestamp, immutable storage, append-only custody log | The custody log's head is not externally anchored (threat TM-001) |
+| ISO/IEC 27037 | Identify, collect, acquire and preserve digital evidence so it stays unchanged and accounted for | Hash and sign at capture, trusted timestamp, immutable storage, append-only custody log | The log is anchored to FreeTSA only on verify and export; entries after the latest anchor are covered only by the server key |
 | ISO/IEC 27041 | Show that each method is suitable and works (validation) | Validation harness with measured error rates, held-out phones, regression gate in CI | Synthetic forgeries; no independent test lab |
 | ISO/IEC 27042 | Analyse and interpret evidence competently, reproducibly, with stated confidence | Examinations: notes, conclusions on a fixed scale, peer review; tool versions in every report; command-line re-run | No record of examiner competence or training |
 | ISO/IEC 27043 | A defined investigation process from incident to closure | Cases with custodian, transfer, closing and reopening; roles | No formal readiness or incident-response stage |
@@ -83,7 +83,7 @@ self-assessment for the course, not a certification: a real lab would also need 
 
 ## Gaps to close, in priority order
 
-1. Timestamp the custody log's head externally (TM-001, ISO/IEC 27037 preservation).
+1. Done 1 Nov 2026: the custody log is anchored to FreeTSA (TM-001). Still open: keep the signing key off the database host.
 2. Require approval for device enrolment (TM-002).
 3. Record examiner competence (training, sign-off) for ACPO principle 2 and ISO/IEC 27042.
 4. Independent testing of the validation results by someone outside the team.
