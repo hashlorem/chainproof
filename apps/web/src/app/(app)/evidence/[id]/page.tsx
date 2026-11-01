@@ -143,7 +143,7 @@ export default function EvidencePage() {
               report={e.forensics}
               original={{ kind: "path", path: `/evidence/${id}/thumbnail.jpg` }}
               ela={e.forensics.checks.ela.has_ela_image ? { kind: "path", path: `/evidence/${id}/forensics/ela.png` } : null}
-              copymove={e.forensics.checks.copy_move.has_copymove_image ? { kind: "path", path: `/evidence/${id}/forensics/copymove.png` } : null}
+              copymove={e.forensics.checks.copy_move.has_copymove_image ? { kind: "path", path: `/evidence/${id}/forensics/${e.forensics.checks.copy_move.copymove_file ?? "copymove.png"}` } : null}
               key={e.forensics.score + e.forensics.verdict}
             />
           ) : (

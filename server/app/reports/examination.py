@@ -43,7 +43,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     subject: filename, sha256, size, mime, source, acquired_at, and optionally sha256_after (re-hash after analysis),
              provenance (text) and custody_anchor (the trusted timestamp that covers the custody log).
     report: the output of run_all() with images removed (split_images).
-    images: {"original": bytes, "ela": png bytes, "copymove": png bytes}; any can be missing.
+    images: {"original": bytes, "ela": PNG bytes, "copymove": JPEG or PNG bytes}; any can be missing.
     method: tool, commit, versions, examined_at, examiner.
     examination: {"question", "notes": [...], "conclusion": {...}, "review": {...}} from the web app, or None.
     """

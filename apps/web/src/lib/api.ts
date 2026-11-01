@@ -40,7 +40,7 @@ export interface ForensicReport {
   checks: {
     metadata: { format: string; width: number; height: number; tags: Record<string, string>; gps: { lat: number; lon: number } | null };
     ela: { mean_error: number; outlier_ratio: number; heatmap_png?: string; has_ela_image?: boolean };
-    copy_move: { pairs: number; regions: unknown[]; overlay_png?: string | null; has_copymove_image?: boolean };
+    copy_move: { pairs: number; regions: unknown[]; overlay_jpg?: string | null; has_copymove_image?: boolean; copymove_file?: string };
     c2pa: { present: boolean; generator?: string; issuer?: string; validation_state?: string; ai_generated?: boolean; trusted?: boolean };
     /** File history: what the file's structure says about where it has been. Older reports don't have it. */
     structure?: {

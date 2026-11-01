@@ -14,7 +14,8 @@ export type Evidence = {
 export type Finding = { severity: "info" | "low" | "medium" | "high"; title: string; detail: string };
 export type ForensicReport = {
   verdict: string; label: string; findings: Finding[]; disclaimer: string;
-  checks: { ela: { heatmap_png?: string }; copy_move: { overlay_png?: string | null } };
+  // overlay_png: servers from before 1 Nov 2026; newer ones send the clone overlay as JPEG.
+  checks: { ela: { heatmap_png?: string }; copy_move: { overlay_jpg?: string | null; overlay_png?: string | null } };
 };
 
 export class ApiError extends Error {

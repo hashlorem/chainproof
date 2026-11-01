@@ -22,6 +22,7 @@ from app.core.chain import append_entry, load_chain
 from app.core.security import current_user, require_role
 from app.db import get_db
 from app.forensics import rates
+from app.forensics.verdict import image_file
 from app.models import Case, CustodyEntry, Evidence, Report, User, fmt_ts, utcnow
 from app.reports.examination import build_examination
 from app.routers.evidence import get_evidence
@@ -161,8 +162,10 @@ def examination_report(evidence_id: str, user: User = Depends(current_user), db:
         "sha256_after": hashlib.sha256(storage.load(ev.storage_key)).hexdigest(),
         "custody_anchor": describe_anchors(check_anchors(load_chain(db, ev.case_id))),
     }
-    images = {"original": storage.load(ev.storage_key), "ela": storage.load_derived(ev.id, "ela.png"),
-              "copymove": storage.load_derived(ev.id, "copymove.png")}
+    # Only the pictures this analysis made: a re-analysis that found no clone leaves the older overlay file on disk.
+    ela_file, cm_file = image_file(ev.forensics_json, "ela", "ela"), image_file(ev.forensics_json, "copy_move", "copymove")
+    images = {"original": storage.load(ev.storage_key), "ela": ela_file and storage.load_derived(ev.id, ela_file),
+              "copymove": cm_file and storage.load_derived(ev.id, cm_file)}
     for c in state["comparisons"]:
         c["overlay_png"] = storage.load_derived(ev.id, c["overlay"]) if c.get("overlay") else None
     report = rates.annotate(dict(ev.forensics_json))

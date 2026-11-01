@@ -49,24 +49,27 @@ def analyze_evidence(
     ev = get_evidence(db, evidence_id)
     data = storage.load(ev.storage_key)
     report, images = split_images(_run(data, ev.mime, _provenance_verified(db, ev, data)))
-    for name, b64 in images.items():
-        storage.save_derived(ev.id, f"{name}.png", base64.b64decode(b64))
+    for filename, b64 in images.items():
+        storage.save_derived(ev.id, filename, base64.b64decode(b64))
     ev.forensics_json = report
     append_entry(db, ev.case_id, "ANALYZED", user.id, ev.id, {"verdict": report["verdict"], "score": report["score"]})
     db.commit()
     return report
 
 
-@router.get("/evidence/{evidence_id}/forensics/{name}.png")
-def forensic_image(evidence_id: str, name: str, _: User = Depends(current_user), db: Session = Depends(get_db)):
+FORENSIC_IMAGES = {"ela.png": "image/png", "copymove.jpg": "image/jpeg", "copymove.png": "image/png"}
+
+
+@router.get("/evidence/{evidence_id}/forensics/{filename}")
+def forensic_image(evidence_id: str, filename: str, _: User = Depends(current_user), db: Session = Depends(get_db)):
     """Derived overlays are copies made by the server, so viewing them is not logged as evidence access."""
     get_evidence(db, evidence_id)
-    if name not in ("ela", "copymove"):
+    if filename not in FORENSIC_IMAGES:
         raise HTTPException(404)
-    data = storage.load_derived(evidence_id, f"{name}.png")
+    data = storage.load_derived(evidence_id, filename)
     if data is None:
         raise HTTPException(404, "Run the analysis first")
-    return Response(data, media_type="image/png")
+    return Response(data, media_type=FORENSIC_IMAGES[filename])
 
 
 @router.post("/forensics/analyze")

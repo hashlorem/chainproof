@@ -44,6 +44,7 @@ export default function Check() {
   const [bg, fg] = toneColors(t, tone);
   const shown =
     view === "ela" && report?.checks.ela.heatmap_png ? `data:image/png;base64,${report.checks.ela.heatmap_png}`
+    : view === "clones" && report?.checks.copy_move.overlay_jpg ? `data:image/jpeg;base64,${report.checks.copy_move.overlay_jpg}`
     : view === "clones" && report?.checks.copy_move.overlay_png ? `data:image/png;base64,${report.checks.copy_move.overlay_png}`
     : uri;
 
@@ -58,7 +59,7 @@ export default function Check() {
           <View style={{ flexDirection: "row", gap: 6 }}>
             <Button title="Photo" variant={view === "photo" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("photo")} />
             <Button title="ELA" variant={view === "ela" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("ela")} disabled={!report.checks.ela.heatmap_png} />
-            <Button title="Clones" variant={view === "clones" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("clones")} disabled={!report.checks.copy_move.overlay_png} />
+            <Button title="Clones" variant={view === "clones" ? "primary" : "secondary"} style={{ flex: 1, minHeight: 38 }} onPress={() => setView("clones")} disabled={!(report.checks.copy_move.overlay_jpg ?? report.checks.copy_move.overlay_png)} />
           </View>
           <Card style={{ backgroundColor: tone === "bad" ? bg : t.surface, borderColor: fg, gap: 4 }}>
             <H size={26} style={{ color: fg }}>{report.label}</H>

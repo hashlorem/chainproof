@@ -89,9 +89,9 @@ export default function AnalyzePage() {
         <Card title="Result" actions={<Button variant="secondary" onClick={() => { setReport(null); setPreview(null); setFile(null); setMatches(null); }}>Check another</Button>}>
           <ForensicsView
             report={report}
-            original={preview ? { kind: "b64", data: preview } : null}
+            original={preview ? { kind: "b64", data: preview, mime: file?.type || "image/jpeg" } : null}
             ela={report.checks.ela.heatmap_png ? { kind: "b64", data: report.checks.ela.heatmap_png } : null}
-            copymove={report.checks.copy_move.overlay_png ? { kind: "b64", data: report.checks.copy_move.overlay_png } : null}
+            copymove={report.checks.copy_move.overlay_jpg ? { kind: "b64", data: report.checks.copy_move.overlay_jpg, mime: "image/jpeg" } : null}
           />
           {matches && (
             <div className="mt-6 space-y-3 border-t-2 border-rule pt-4">

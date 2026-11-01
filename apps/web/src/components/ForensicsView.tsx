@@ -15,7 +15,7 @@ const VERDICT_TONE = {
 
 const SEVERITY_TONE = { info: "info", low: "neutral", medium: "warn", high: "bad" } as const;
 
-type ImageSource = { kind: "b64"; data: string } | { kind: "path"; path: string } | null;
+type ImageSource = { kind: "b64"; data: string; mime?: string } | { kind: "path"; path: string } | null;
 
 /** Shows one forensic report. Images come either inline (Check a photo) or from the evidence endpoints. */
 export function ForensicsView({ report, original, ela, copymove }: {
@@ -61,7 +61,7 @@ export function ForensicsView({ report, original, ela, copymove }: {
           <div className="overflow-hidden border border-rule bg-black/5">
             {current?.src?.kind === "b64" ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={`data:image/png;base64,${current.src.data}`} alt={current.label} className="w-full" />
+              <img src={`data:${current.src.mime ?? "image/png"};base64,${current.src.data}`} alt={current.label} className="w-full" />
             ) : current?.src?.kind === "path" ? (
               <AuthedImage path={current.src.path} alt={current.label} className="min-h-48 w-full" />
             ) : null}
