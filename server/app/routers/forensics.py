@@ -11,7 +11,7 @@ from app.core.chain import append_entry
 from app.core.security import current_user, require_role
 from app.core.signing import verify_manifest
 from app.db import get_db
-from app.forensics import rates
+from app.forensics import alternatives, rates
 from app.forensics.common import open_rgb
 from app.forensics.similarity import MATCH_DISTANCE, SAME_SCENE, VERIFY_DISTANCE, closest, compare, image_phash, phash, phashes, same_scene
 from app.forensics.verdict import run_all, split_images
@@ -144,6 +144,7 @@ async def compare_with_evidence(evidence_id: str, file: UploadFile = File(...), 
     except ValueError as e:
         raise HTTPException(422, f"Could not compare: {e}")
     sha = hashlib.sha256(data).hexdigest()
+    alternatives.annotate(result)
     result |= {"questioned_sha256": sha, "distance": closest(phashes(questioned), phash(original)),
                "validation": rates.describe_difference()}
     # Keep the difference map with the evidence (like the ELA heatmap) so the examination report can show it, and

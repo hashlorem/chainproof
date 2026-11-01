@@ -116,7 +116,8 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     for f in report["findings"]:
         color = SEVERITY_COLOR.get(f["severity"], INK).hexval()
         rows.append([Paragraph(f'<font color="{color}"><b>{f["severity"].upper()}</b></font>', SMALL), _p(f["check"]),
-                     _p(f"{f['title']}. {f['detail']}"), _p(f.get("validation") or "Not validated")])
+                     _p(f"{f['title']}. {f['detail']}" + (f" What else explains it: {f['alternative']}" if f.get("alternative") else "")),
+                     _p(f.get("validation") or "Not validated")])
     story += [Paragraph("6. Findings", h2), _table(rows, [18 * mm, 20 * mm, 88 * mm, 54 * mm]),
               _p(f"Automated summary: {report['label']} (score {report['score']}). {report['disclaimer']}"), Spacer(1, 3 * mm)]
 

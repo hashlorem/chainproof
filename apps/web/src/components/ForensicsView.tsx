@@ -90,6 +90,11 @@ export function ForensicsView({ report, original, ela, copymove }: {
                         <span className="eyebrow">How reliable</span> {f.validation ?? "Not validated"}
                       </p>
                     )}
+                    {f.alternative && (
+                      <p className="mt-1 text-xs">
+                        <span className="eyebrow">What else explains it</span> {f.alternative}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>

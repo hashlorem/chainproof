@@ -4,6 +4,7 @@ Nothing here has its own table. Every note, conclusion and review is a custody e
 hash-chained and signed like everything else, and the current state is read back from the chain.
 """
 
+import copy
 import hashlib
 import platform
 import subprocess
@@ -21,7 +22,7 @@ from app.core.anchor import anchor_if_intact, check_anchors, describe as describ
 from app.core.chain import append_entry, load_chain
 from app.core.security import current_user, require_role
 from app.db import get_db
-from app.forensics import rates
+from app.forensics import alternatives, rates
 from app.forensics.verdict import image_file
 from app.models import Case, CustodyEntry, Evidence, Report, User, fmt_ts, utcnow
 from app.reports.examination import build_examination
@@ -169,7 +170,7 @@ def examination_report(evidence_id: str, user: User = Depends(current_user), db:
               "copymove": cm_file and storage.load_derived(ev.id, cm_file)}
     for c in state["comparisons"]:
         c["overlay_png"] = storage.load_derived(ev.id, c["overlay"]) if c.get("overlay") else None
-    report = rates.annotate(dict(ev.forensics_json))
+    report = alternatives.annotate(rates.annotate(copy.deepcopy(ev.forensics_json)))
     pdf = build_examination(subject, report, images,
                             {"tool": "ChainProof", "commit": commit, "versions": libs, "examined_at": now, "examiner": user.name},
                             state)

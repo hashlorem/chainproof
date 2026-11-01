@@ -32,6 +32,8 @@ export interface Finding {
   severity: "info" | "low" | "medium" | "high"; title: string; detail: string; check: string;
   /** How often this check is wrong, measured in docs/validation. Missing if the check has not been validated. */
   validation?: string | null;
+  /** The innocent explanation to rule out before relying on this finding. */
+  alternative?: string | null;
 }
 export interface ForensicReport {
   verdict: "verified_capture" | "ai_generated" | "likely_manipulated" | "suspicious" | "no_signs";

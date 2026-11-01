@@ -163,6 +163,28 @@ def test_clone_overlay_is_a_jpeg_and_old_analyses_still_read(client, investigato
     assert client.get(f"/evidence/{ev}/forensics/report.json", headers=investigator["headers"]).status_code == 404
 
 
+def test_findings_carry_their_innocent_explanation(client, investigator, case_id, photo):
+    """Every finding that could have an innocent cause says what it is, also on reports stored before this existed."""
+    from app.forensics.alternatives import ALTERNATIVES
+
+    img = photo.copy()
+    img.paste(img.crop((100, 450, 300, 650)), (650, 120))
+    report = run_all(jpeg(img), "image/jpeg")
+    clone = next(f for f in report["findings"] if f["check"] == "copy_move")
+    assert "Identical real objects" in clone["alternative"]
+
+    ev = client.post(f"/cases/{case_id}/evidence", files={"file": ("c.jpg", jpeg(img), "image/jpeg")}, headers=investigator["headers"]).json()["id"]
+    client.post(f"/evidence/{ev}/analyze", headers=investigator["headers"])
+    from app.db import SessionLocal
+    from app.models import Evidence
+    with SessionLocal() as db:  # an analysis stored before the field existed
+        row = db.get(Evidence, ev)
+        row.forensics_json = {**row.forensics_json, "findings": [{k: v for k, v in f.items() if k != "alternative"} for f in row.forensics_json["findings"]]}
+        db.commit()
+    shown = client.get(f"/evidence/{ev}", headers=investigator["headers"]).json()["forensics"]["findings"]
+    assert all(f["alternative"] == ALTERNATIVES.get(f["title"]) for f in shown)
+
+
 def test_report_names_only_pictures_its_analysis_made():
     from app.forensics.verdict import image_file
 
