@@ -4,7 +4,7 @@ import { verifyChain } from "@chainproof/shared";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
-import { api, formatTs, type CustodyResponse } from "@/lib/api";
+import { api, formatTs, tokenStore, type CustodyResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Loading, cx } from "./ui";
 
@@ -19,7 +19,8 @@ const NAV = [
     title: "Lab", items: [
       { href: "/devices", label: "Devices", icon: "M8 3h8v18H8z M11 18h2" },
       { href: "/users", label: "Users", icon: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6 M3 20c0-3 3-5 6-5s6 2 6 5 M17 11a2.5 2.5 0 1 0 0-5 M21 19c0-2-1.5-3.5-3.5-4", supervisor: true },
-      { href: "/verify", label: "Public verify", icon: "M12 3l8 3v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V6z M8.5 12l2.5 2.5 4.5-5" },
+      // The page outsiders see, so it opens in its own tab (no staff menu) and the dashboard stays put.
+      { href: "/verify", label: "Public verify", external: true, icon: "M12 3l8 3v6c0 4.5-3.5 8-8 9-4.5-1-8-4.5-8-9V6z M8.5 12l2.5 2.5 4.5-5" },
     ],
   },
 ];
@@ -120,6 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <Link
                     key={n.href}
                     href={n.href}
+                    {...("external" in n && n.external ? { target: "_blank", rel: "noopener", title: "Opens the public page in a new tab" } : {})}
                     aria-current={active(n.href) ? "page" : undefined}
                     className={cx("flex items-center gap-2.5 rounded-md px-2.5 py-1.5", active(n.href) ? "bg-accent/25 text-ink" : "text-ink/85 hover:bg-surface-2")}
                   >
@@ -127,6 +129,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                       <path d={n.icon} />
                     </svg>
                     {n.label}
+                    {"external" in n && n.external && (
+                      <svg viewBox="0 0 24 24" className="ml-auto size-3 text-muted" fill="none" stroke="currentColor" strokeWidth="2" aria-label="opens in a new tab">
+                        <path d="M14 4h6v6 M20 4l-9 9 M18 14v6H4V6h6" />
+                      </svg>
+                    )}
                   </Link>
                 ))}
               </div>
@@ -202,5 +209,20 @@ function StatusBar({ caseId }: { caseId: string | null }) {
       {meta && <span className="font-mono">ChainProof {meta.commit.slice(0, 7)}</span>}
       {now && <span className="font-mono text-ink">{now} UTC</span>}
     </footer>
+  );
+}
+
+const subscribeStorage = (cb: () => void) => {
+  window.addEventListener("storage", cb);
+  return () => window.removeEventListener("storage", cb);
+};
+
+/** Header link on public pages: staff who are already signed in go back to the dashboard instead of "signing in" again. */
+export function StaffLink() {
+  const signedIn = useSyncExternalStore(subscribeStorage, () => !!tokenStore.get(), () => false);
+  return (
+    <Link href={signedIn ? "/" : "/login"} className="text-[13px] text-accent hover:underline">
+      {signedIn ? "Back to dashboard" : "Staff sign in"}
+    </Link>
   );
 }
