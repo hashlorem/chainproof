@@ -67,7 +67,7 @@ def test_cloned_area_is_found(photo):
     assert result["regions"], result["pairs"]
     boxes = [result["regions"][0]["copy_box"], result["regions"][0]["source_box"]]
     assert any(640 <= x0 and x1 <= 860 and 110 <= y0 and y1 <= 330 for x0, y0, x1, y1 in boxes)  # pasted at 650..850, 120..320
-    assert result["overlay_png"]
+    assert result["overlay_jpg"]
 
 
 def test_large_object_duplicated_next_to_itself_is_found(photo):
@@ -149,6 +149,50 @@ def test_analyze_endpoints(client, investigator, phone, case_id, original):
     assert r.status_code == 200 and r.json()["checks"]["ela"]["heatmap_png"]
     r = client.post("/forensics/analyze", files={"file": ("x.txt", b"hi", "text/plain")}, headers=investigator["headers"])
     assert r.status_code == 415
+
+
+def test_clone_overlay_is_a_jpeg_and_old_analyses_still_read(client, investigator, case_id, photo):
+    img = photo.copy()
+    img.paste(img.crop((100, 450, 300, 650)), (650, 120))
+    r = client.post(f"/cases/{case_id}/evidence", files={"file": ("clone.jpg", jpeg(img), "image/jpeg")}, headers=investigator["headers"])
+    ev = r.json()["id"]
+    report = client.post(f"/evidence/{ev}/analyze", headers=investigator["headers"]).json()
+    assert report["checks"]["copy_move"]["copymove_file"] == "copymove.jpg"
+    r = client.get(f"/evidence/{ev}/forensics/copymove.jpg", headers=investigator["headers"])
+    assert r.status_code == 200 and r.headers["content-type"] == "image/jpeg" and r.content[:2] == b"\xff\xd8"
+    assert client.get(f"/evidence/{ev}/forensics/report.json", headers=investigator["headers"]).status_code == 404
+
+
+def test_findings_carry_their_innocent_explanation(client, investigator, case_id, photo):
+    """Every finding that could have an innocent cause says what it is, also on reports stored before this existed."""
+    from app.forensics.alternatives import ALTERNATIVES
+
+    img = photo.copy()
+    img.paste(img.crop((100, 450, 300, 650)), (650, 120))
+    report = run_all(jpeg(img), "image/jpeg")
+    clone = next(f for f in report["findings"] if f["check"] == "copy_move")
+    assert "Identical real objects" in clone["alternative"]
+
+    ev = client.post(f"/cases/{case_id}/evidence", files={"file": ("c.jpg", jpeg(img), "image/jpeg")}, headers=investigator["headers"]).json()["id"]
+    client.post(f"/evidence/{ev}/analyze", headers=investigator["headers"])
+    from app.db import SessionLocal
+    from app.models import Evidence
+    with SessionLocal() as db:  # an analysis stored before the field existed
+        row = db.get(Evidence, ev)
+        row.forensics_json = {**row.forensics_json, "findings": [{k: v for k, v in f.items() if k != "alternative"} for f in row.forensics_json["findings"]]}
+        db.commit()
+    shown = client.get(f"/evidence/{ev}", headers=investigator["headers"]).json()["forensics"]["findings"]
+    assert all(f["alternative"] == ALTERNATIVES.get(f["title"]) for f in shown)
+
+
+def test_report_names_only_pictures_its_analysis_made():
+    from app.forensics.verdict import image_file
+
+    old = {"checks": {"copy_move": {"has_copymove_image": True}}}  # stored before overlays became JPEG
+    assert image_file(old, "copy_move", "copymove") == "copymove.png"
+    # A re-analysis that found no clone: an older overlay may still be on disk, but it must not be shown.
+    none = {"checks": {"copy_move": {"has_copymove_image": False, "copymove_file": "copymove.jpg"}}}
+    assert image_file(none, "copy_move", "copymove") is None
 
 
 def test_ai_name_in_metadata_is_not_an_ai_verdict(original):

@@ -18,7 +18,7 @@ export default function DevicesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="heading text-4xl">Devices</h1>
+        <h1 className="heading text-2xl">Devices</h1>
         <p className="text-sm text-muted">
           Each phone makes its own Ed25519 signing key when it is enrolled. The private key never leaves the phone. Revoke a lost or stolen phone here.
         </p>
@@ -49,7 +49,7 @@ export default function DevicesPage() {
                     <td className="py-2">{d.user_name}</td>
                     <td className="py-2"><Hash value={d.public_key_hex} short={10} /></td>
                     <td className="py-2 text-muted">{formatTs(d.enrolled_at)}</td>
-                    <td className="py-2">{d.revoked ? <Pill tone="bad">Revoked {formatTs(d.revoked_at)}</Pill> : <Pill tone="ok">Active</Pill>}</td>
+                    <td className="py-2">{d.revoked ? <Pill tone="bad">Revoked {formatTs(d.revoked_at)}</Pill> : <Pill>Active</Pill>}</td>
                     <td className="py-2 text-right">
                       {!d.revoked && (user?.role === "supervisor" || d.user_id === user?.id) && (
                         <Button variant="secondary" onClick={() => revoke(d)}>Revoke</Button>

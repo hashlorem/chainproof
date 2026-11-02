@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getServerUrl } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { FONT, useTheme } from "@/lib/theme";
+import { sans, useTheme } from "@/lib/theme";
 import { Button, ErrorText, H, Label, T } from "@/ui";
 
 export default function Login() {
@@ -18,7 +18,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const input = [styles.input, { backgroundColor: t.surface, borderColor: t.rule, color: t.ink }];
+  const input = [styles.input, sans("400"), { backgroundColor: t.surface2, borderColor: t.border, color: t.ink }];
 
   async function submit() {
     setBusy(true);
@@ -62,5 +62,5 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   wrap: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 28 },
-  input: { borderWidth: 2, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: FONT.mono },
+  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
 });

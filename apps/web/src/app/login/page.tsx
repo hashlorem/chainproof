@@ -37,12 +37,12 @@ export default function LoginPage() {
   return (
     <main className="grid min-h-dvh place-items-center px-4">
       <div className="w-full max-w-sm space-y-6">
-        <div className="space-y-3 border-b-2 border-rule pb-4">
+        <div className="space-y-3">
           <Logo />
           <p className="text-sm text-muted">Tamper-evident evidence: signed on capture, tracked on every touch, checked on demand.</p>
         </div>
-        <form onSubmit={submit} className="space-y-4 border-2 border-rule bg-surface p-5">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-bad">Staff sign in</div>
+        <form onSubmit={submit} className="space-y-4 rounded-lg bg-surface p-5">
+          <h1 className="heading text-lg">Staff sign in</h1>
           <label className="block space-y-1 text-sm">
             <span className="eyebrow">Email</span>
             <input className={inputClass} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -59,7 +59,7 @@ export default function LoginPage() {
             <p>Demo accounts (password <code>chainproof123</code>):</p>
             <div className="flex flex-wrap gap-2">
               {DEMO.map(([e, label]) => (
-                <button key={e} className="min-h-9 border border-rule px-2.5 uppercase tracking-[0.06em] hover:bg-surface-2 hover:text-ink" onClick={() => { setEmail(e); setPassword("chainproof123"); }}>
+                <button key={e} className="min-h-9 rounded-md bg-surface px-2.5 hover:bg-surface-2 hover:text-ink" onClick={() => { setEmail(e); setPassword("chainproof123"); }}>
                   {label}
                 </button>
               ))}

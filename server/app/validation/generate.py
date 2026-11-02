@@ -1,5 +1,5 @@
 """
-Makes labelled test images from camera originals: five kinds of forgery a person would make in an editor, and two
+Makes labelled test images from camera originals: seven kinds of edit a person would make in an editor, and two
 kinds of innocent processing. Everything is seeded from the original's hash, so the same originals always give the
 same test set.
 
@@ -74,8 +74,51 @@ def _paste(img, patch, mask, dst_center):
     return [x, y, x + patch.width, y + patch.height]
 
 
+PENS = ((15, 15, 15), (245, 245, 245), (210, 30, 30), (30, 60, 200))
+
+
+def _stroke(rng, start, step: float, n: int, zigzag: bool) -> list[tuple[float, float]]:
+    """A hand-drawn line: a wandering path, or a back-and-forth scribble that drifts sideways, like hatching something out."""
+    x, y = start
+    a = rng.uniform(0, 2 * np.pi)
+    pts = [(x, y)]
+    for i in range(n):
+        if zigzag:
+            sign = 1 if i % 2 == 0 else -1
+            d = a + rng.uniform(-0.15, 0.15)
+            drift = step * rng.uniform(0.15, 0.3)
+            x += sign * step * np.cos(d) + drift * np.cos(a + np.pi / 2)
+            y += sign * step * np.sin(d) + drift * np.sin(a + np.pi / 2)
+        else:
+            a += rng.uniform(-0.45, 0.45)
+            x, y = x + step * np.cos(a), y + step * np.sin(a)
+        pts.append((x, y))
+    return pts
+
+
+def doodle(img: Image.Image, rng: random.Random) -> tuple[Image.Image, dict]:
+    """Pen strokes drawn over the photo (Markup, Instagram, an editor's brush): thin, solid colour, nothing copied."""
+    short = min(img.size)
+    width = max(2, int(short * rng.choice([rng.uniform(0.0015, 0.004), rng.uniform(0.004, 0.01)])))
+    mask = Image.new("L", img.size, 0)
+    draw = ImageDraw.Draw(mask)
+    for _ in range(rng.randint(1, 3)):
+        start = (rng.uniform(0.15, 0.85) * img.width, rng.uniform(0.15, 0.85) * img.height)
+        if zigzag := rng.random() < 0.35:
+            pts = _stroke(rng, start, short * rng.uniform(0.03, 0.07), rng.randint(6, 14), True)
+        else:
+            pts = _stroke(rng, start, short * rng.uniform(0.01, 0.02), rng.randint(12, 40), False)
+        draw.line(pts, fill=255, width=width, joint="curve")
+    mask = mask.filter(ImageFilter.GaussianBlur(0.7))     # anti-aliased edge, like a real brush
+    img.paste(Image.new("RGB", img.size, rng.choice(PENS)), (0, 0), mask)
+    box = mask.getbbox()
+    return img, {"dest_box": list(box), "stroke_width": width}
+
+
 def forge(kind: str, img: Image.Image, rng: random.Random, donor: Image.Image | None = None) -> tuple[Image.Image, dict]:
     img = img.copy()
+    if kind == "doodle":
+        return doodle(img, rng)
     short = min(img.size)
     r = int(short * rng.uniform(0.10, 0.22))
     if kind == "removal":

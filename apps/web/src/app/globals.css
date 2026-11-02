@@ -1,46 +1,48 @@
 @import "tailwindcss";
 
-/* "Evidence form" look: ruled paper, black rules, one signal red for problems. */
+/* "Examiner" look (docs/REDESIGN.md): dark by default, panes instead of boxes, colour only for meaning.
+   Green = verified, amber = unverified or needs attention, red = a problem, blue = actions and selection. */
 :root {
-  --bg: #f7f7f5;
-  --surface: #ffffff;
-  --surface-2: #efefea;
-  --border: #d4d4ce;
-  --rule: #111111;
-  --ink: #111111;
-  --muted: #55554f;
-  --accent: #111111;
-  --accent-ink: #f7f7f5;
-  --ok: #17663a;
-  --ok-bg: #eef4ef;
-  --bad: #c8281e;
-  --bad-bg: #fbedeb;
-  --warn: #9a5300;
-  --warn-bg: #fbf1e3;
-  --info: #1f4fd1;
-  --info-bg: #edf1fb;
+  color-scheme: dark;
+  --bg: #1c1c1e;
+  --surface: #252527;
+  --surface-2: #2c2c2e;
+  --border: rgb(255 255 255 / 0.08);
+  --rule: rgb(255 255 255 / 0.16);
+  --ink: #f5f5f7;
+  --muted: #a1a1a6;
+  --accent: #0a84ff;
+  --accent-ink: #ffffff;
+  --ok: #32d74b;
+  --ok-bg: rgb(50 215 75 / 0.14);
+  --bad: #ff453a;
+  --bad-bg: rgb(255 69 58 / 0.14);
+  --warn: #ff9f0a;
+  --warn-bg: rgb(255 159 10 / 0.14);
+  --info: #4da3ff;
+  --info-bg: rgb(10 132 255 / 0.16);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121211;
-    --surface: #1a1a18;
-    --surface-2: #242421;
-    --border: #3a3a36;
-    --rule: #edede8;
-    --ink: #edede8;
-    --muted: #a3a39b;
-    --accent: #edede8;
-    --accent-ink: #121211;
-    --ok: #6fcf97;
-    --ok-bg: #13241a;
-    --bad: #ff7062;
-    --bad-bg: #2e1513;
-    --warn: #f0b04a;
-    --warn-bg: #2b2111;
-    --info: #8fb0ff;
-    --info-bg: #151e33;
-  }
+/* Light theme: the toggle sets data-theme on <html>; the public verify page uses it on its own wrapper. */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-2: #ececf0;
+  --border: rgb(0 0 0 / 0.08);
+  --rule: rgb(0 0 0 / 0.16);
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --accent: #0071e3;
+  --accent-ink: #ffffff;
+  --ok: #248a3d;
+  --ok-bg: #e9f5ec;
+  --bad: #d70015;
+  --bad-bg: #fdecee;
+  --warn: #b25000;
+  --warn-bg: #fdf1e4;
+  --info: #0066cc;
+  --info-bg: #e8f1fb;
 }
 
 @theme inline {
@@ -61,41 +63,42 @@
   --color-warn-bg: var(--warn-bg);
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
-  --font-sans: var(--font-plex-mono);
-  --font-mono: var(--font-plex-mono);
-  --font-display: var(--font-archivo);
-  /* Square corners everywhere; rounded-full (spinners, map pins) is unaffected. */
-  --radius-xs: 0;
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
-  --radius-xl: 0;
-  --radius-2xl: 0;
+  /* SF Pro on Apple devices and Segoe UI on Windows (both are the system font, which a web page may use but not
+     bundle); Inter, loaded in layout.tsx, everywhere else. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", var(--font-inter), system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, "Cascadia Mono", Menlo, var(--font-plex-mono), monospace;
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
 }
 
-/* Condensed uppercase headings, like the printed headers on a custody form. */
+/* Headings: the system font, semibold, slightly tight. No uppercase: tools read calmly. */
 @utility heading {
-  font-family: var(--font-archivo);
-  font-stretch: 75%;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.01em;
-  line-height: 1;
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
-/* Small field labels: "CASE NO.", "STATUS". */
+/* Small section labels: "AUTOMATED VERDICT", "FILE". */
 @utility eyebrow {
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   line-height: 1.4;
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.04em;
   color: var(--muted);
 }
 
 body {
   background: var(--bg);
   color: var(--ink);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
 .leaflet-container {

@@ -19,7 +19,7 @@ def main() -> None:
     f = sub.add_parser("fetch-vision", help="download camera originals and their WhatsApp/Facebook versions")
     f.add_argument("--per-device", type=int, default=3)
     g = sub.add_parser("generate", help="make manipulated and benign re-saved images from the camera originals")
-    g.add_argument("--kinds", default="clone_same,clone_nearby,clone_scaled,clone_rotated,removal,splice,recompressed,resized")
+    g.add_argument("--kinds", default="clone_same,clone_nearby,clone_scaled,clone_rotated,removal,splice,doodle,recompressed,resized")
     r = sub.add_parser("run", help="run every check on the test set and write the validation report")
     r.add_argument("--out", type=Path, default=Path("../docs/validation"))
     for s in (f, g, r):

@@ -13,7 +13,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table
 
-from app.reports.pdf import BAD, INK, MONO, NA, OK, SMALL, _table, styles
+from app.core.timefmt import utc_text
+from app.reports.pdf import BAD, EYEBROW, INK, MONO, MUTED, NA, OK, SMALL, _table, styles
 
 SEVERITY_COLOR = {"high": BAD, "medium": NA, "low": NA, "info": INK}
 
@@ -30,8 +31,7 @@ def _img(data: bytes | None, width_mm: float) -> Image | Paragraph:
 
 
 def _ts(ts: str | None) -> str:
-    """2026-10-30T12:29:43.114174Z -> 2026-10-30 12:29:43 UTC"""
-    return f"{ts[:19].replace('T', ' ')} UTC" if ts else "—"
+    return utc_text(ts)
 
 
 def _p(text: str, style=SMALL) -> Paragraph:
@@ -43,7 +43,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     subject: filename, sha256, size, mime, source, acquired_at, and optionally sha256_after (re-hash after analysis),
              provenance (text) and custody_anchor (the trusted timestamp that covers the custody log).
     report: the output of run_all() with images removed (split_images).
-    images: {"original": bytes, "ela": png bytes, "copymove": png bytes}; any can be missing.
+    images: {"original": bytes, "ela": PNG bytes, "copymove": JPEG or PNG bytes}; any can be missing.
     method: tool, commit, versions, examined_at, examiner.
     examination: {"question", "notes": [...], "conclusion": {...}, "review": {...}} from the web app, or None.
     """
@@ -54,7 +54,8 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     checks = report["checks"]
     h2, body = styles["Heading2"], styles["BodyText"]
     story = [
-        Paragraph("Image Examination Report", styles["Title"]),
+        Paragraph("CHAINPROOF · IMAGE EXAMINATION REPORT", EYEBROW),
+        _p(subject["filename"], styles["Title"]),
         _table([
             ["Item", _p(subject["filename"]), "Examined", _p(_ts(method["examined_at"]))],
             ["Question", _p(exam.get("question") or "Is this image an unaltered record of what the camera captured?"), "Examiner",
@@ -72,7 +73,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
         ["SHA-256 at intake", _p(subject["sha256"], MONO)],
         ["SHA-256 after analysis", _p(f"{after or '—'} ({integrity})", MONO)],
         ["Size / type", f"{subject['size']:,} bytes · {subject['mime']}"],
-        ["Received", _p(subject.get("acquired_at") or "not recorded")],
+        ["Received", _p(_ts(subject["acquired_at"]) if subject.get("acquired_at") else "not recorded")],
         ["Custody log anchor", _p(subject.get("custody_anchor") or "not recorded")],
     ], [38 * mm, 142 * mm], header=False), Spacer(1, 3 * mm)]
 
@@ -116,7 +117,8 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     for f in report["findings"]:
         color = SEVERITY_COLOR.get(f["severity"], INK).hexval()
         rows.append([Paragraph(f'<font color="{color}"><b>{f["severity"].upper()}</b></font>', SMALL), _p(f["check"]),
-                     _p(f"{f['title']}. {f['detail']}"), _p(f.get("validation") or "Not validated")])
+                     _p(f"{f['title']}. {f['detail']}" + (f" What else explains it: {f['alternative']}" if f.get("alternative") else "")),
+                     _p(f.get("validation") or "Not validated")])
     story += [Paragraph("6. Findings", h2), _table(rows, [18 * mm, 20 * mm, 88 * mm, 54 * mm]),
               _p(f"Automated summary: {report['label']} (score {report['score']}). {report['disclaimer']}"), Spacer(1, 3 * mm)]
 
@@ -139,6 +141,8 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
                 ["Result", Paragraph(f'<font color="{(BAD if c["regions"] else OK).hexval()}"><b>{outcome}</b></font>', SMALL)],
                 ["Match", _p(f"fingerprint {c['distance']}/64 bits apart · {c.get('aligned') or 'aligned'}")],
                 ["By", _p(f"{c['by']} · {_ts(c['ts'])} (custody entry #{c['seq']})")],
+                ["Exhibit", _p("copy kept with this item, re-hashed whenever it is downloaded" if c.get("kept")
+                               else "only the hash was kept (compared before copies were stored)")],
             ], [22 * mm, 82 * mm], header=False)]], colWidths=[74 * mm, 106 * mm],
                 style=[("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]), Spacer(1, 3 * mm)]))
         if len(comparisons) > 4:
@@ -194,7 +198,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     def footer(canvas, doc_):
         canvas.saveState()
         canvas.setFont("Helvetica", 7)
-        canvas.setFillColor(INK)
+        canvas.setFillColor(MUTED)
         canvas.drawString(15 * mm, 8 * mm, f"ChainProof image examination · {subject['sha256'][:16]}… · {_ts(method['examined_at'])}")
         canvas.drawRightString(A4[0] - 15 * mm, 8 * mm, f"Page {doc_.page}")
         canvas.restoreState()

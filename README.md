@@ -113,7 +113,7 @@ Other settings are listed in `server/app/config.py`. Each one can be set with a 
 ## Tests
 
 ```bash
-cd server && uv run pytest                # 83 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
+cd server && uv run pytest                # 89 tests: signatures, chain tampering, DB triggers, TSA, forensics, PDF, security, migrations,
                                           #   examinations, and a validation regression gate on six real photos
 pnpm shared:test                          # 8 tests: same vectors from the TypeScript side
 
@@ -210,7 +210,7 @@ uv run pytest tests/test_migrations.py                              # fails if m
 
 1. **Capture.** On the phone, open a case and take 2–3 photos and a short video. Point out "Signed and queued" and the hash.
 2. **Offline.** Turn on airplane mode and take a photo. It waits in the queue. Turn airplane mode off and it uploads, with the signature still valid.
-3. **Web.** Open the case. Show the map, the custody timeline and the "Timestamped" badges. Click **Verify integrity**: all green, and checked a second time *in the browser*. Verify also sends the newest entry's hash to FreeTSA ("Log anchored").
+3. **Web.** Open the case. Show the map, the integrity panel and the custody chain down the side. Click **Verify integrity**: all green, and checked a second time *in the browser*. Verify also sends the newest entry's hash to FreeTSA: a "Log anchored" entry appears, and the chain turns solid up to it.
 4. **Attack.** As the "insider with database access":
    ```bash
    cd server && uv run python -m scripts.tamper_demo --smart
@@ -225,7 +225,8 @@ uv run pytest tests/test_migrations.py                              # fails if m
 5. **Forensics.** Import an edited photo, for example one with a cloned area, then click **Run analysis**. It shows "Likely manipulated" with the clone highlighted, and how often that check is wrong.
    Add a note, record a conclusion as the investigator, review it as the supervisor, and export the examination report.
 6. **Copies.** In **Check a photo**, drop the edited copy of a photo whose original is in a case. ChainProof finds the
-   original ("same scene, visibly changed") and **Compare** outlines exactly what was changed.
+   original ("same scene, visibly changed") and **Compare** outlines exactly what was changed. Switch to **Swipe** and drag
+   the slider across the edit; the bouquet with drawn marks works well here.
 7. **Report.** Click **Export PDF** and scan its QR code with a phone. The public page confirms the record. Edit one byte of the PDF and it is no longer recognised.
 
 ## Security notes

@@ -21,7 +21,7 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="heading text-4xl">Users</h1>
+        <h1 className="heading text-2xl">Users</h1>
         <p className="text-sm text-muted">Every action in a chain of custody is tied to one of these accounts.</p>
       </div>
       <NewUser onCreated={reload} />
@@ -38,7 +38,7 @@ export default function UsersPage() {
                   <div className="text-xs text-muted">{u.email}</div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Pill tone={u.role === "supervisor" ? "info" : u.role === "auditor" ? "neutral" : "ok"}>{u.role}</Pill>
+                  <Pill>{u.role}</Pill>
                   {u.id !== user.id && <ResetPassword u={u} />}
                 </div>
               </li>
@@ -89,7 +89,7 @@ function NewUser({ onCreated }: { onCreated: () => void }) {
         </select>
         <div className="flex items-center gap-3 sm:col-span-2">
           <Button type="submit" busy={busy}>Create user</Button>
-          {done && <span className="text-sm text-ok">{done}</span>}
+          {done && <span className="text-sm">{done}</span>}
         </div>
         {error && <div className="sm:col-span-2"><ErrorBox>{error}</ErrorBox></div>}
       </form>

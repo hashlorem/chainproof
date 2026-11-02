@@ -8,14 +8,14 @@ import { AuthedImage } from "@/components/AuthedImage";
 import { CustodyTimeline } from "@/components/CustodyTimeline";
 import { Dropzone } from "@/components/Dropzone";
 import { MapView, type MapPoint } from "@/components/MapView";
-import { Button, Card, CheckPill, ErrorBox, Hash, Loading, Pill, cx, inputClass } from "@/components/ui";
+import { Button, Card, CheckPill, ErrorBox, Hash, Loading, VERDICT_TONE, cx, inputClass } from "@/components/ui";
 import { api, formatBytes, formatTs, type Case, type CustodyResponse, type Evidence, type User, type Verification } from "@/lib/api";
+import type { CustodyEntry } from "@chainproof/shared";
+import { useStatusCase } from "@/components/Shell";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
 
 type CaseDetail = Case & { evidence: Evidence[] };
-
-const VERDICT_TONE = { verified_capture: "ok", no_signs: "ok", suspicious: "warn", likely_manipulated: "bad", ai_generated: "bad" } as const;
 
 export default function CasePage() {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +28,7 @@ export default function CasePage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [panel, setPanel] = useState<"transfer" | "close" | "reopen" | null>(null);
+  useStatusCase(id);
 
   const users = useMemo(() => new Map((usersQ.data ?? []).map((u) => [u.id, u])), [usersQ.data]);
   const c = caseQ.data;
@@ -95,17 +96,17 @@ export default function CasePage() {
 
   return (
     <div className="space-y-6">
-      <nav className="flex gap-3 text-xs uppercase tracking-[0.08em] text-muted" aria-label="Breadcrumb">
+      <nav className="flex gap-2 text-[13px] text-muted" aria-label="Breadcrumb">
         <Link href="/" className="hover:text-ink hover:underline">Cases</Link>
         <span aria-hidden>/</span>
         <span>{c.id.slice(0, 8).toUpperCase()}</span>
       </nav>
 
-      <section aria-label="Case record" className="border-2 border-rule bg-surface">
-        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-rule px-5 py-5">
-          <div className="min-w-0 max-w-3xl space-y-2">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-bad">Chain of custody record</div>
-            <h1 className="heading text-4xl sm:text-5xl">{c.title}</h1>
+      <section aria-label="Case record" className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0 max-w-3xl space-y-1.5">
+            <div className="eyebrow">Chain of custody record</div>
+            <h1 className="heading text-2xl sm:text-[28px]">{c.title}</h1>
             {c.description && <p className="text-sm text-muted">{c.description}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -115,7 +116,7 @@ export default function CasePage() {
             {canReopen && <Button variant="secondary" onClick={() => toggle("reopen")}>Reopen case</Button>}
           </div>
         </div>
-        <dl className="grid grid-cols-2 gap-px bg-rule md:grid-cols-4">
+        <dl className="flex flex-wrap gap-x-10 gap-y-3 rounded-lg bg-surface px-5 py-3">
           <RecordField label="Case no.">{c.id.slice(0, 8).toUpperCase()}</RecordField>
           <RecordField label="Status">{isOpen ? "Open" : "Closed"}</RecordField>
           <RecordField label="Current custodian">{users.get(c.custodian_id)?.name ?? "…"}</RecordField>
@@ -138,13 +139,13 @@ export default function CasePage() {
       {panel === "reopen" && (
         <ReasonForm title="Reopen case" placeholder="Reason, e.g. new lead" action="Reopen" path={`/cases/${id}/reopen`} onDone={afterChange} />
       )}
-      <IntegrityStrip v={verification} local={localCheck} onVerify={verify} busy={busy === "verify"} />
+      <IntegrityStrip v={verification} local={localCheck} entries={custodyQ.data?.entries ?? []} onVerify={verify} busy={busy === "verify"} />
 
       <div className="grid items-start gap-6 lg:grid-cols-[1.8fr_1fr]">
         <div className="min-w-0 space-y-6">
-          <section aria-label="Evidence items" className="border-2 border-rule bg-surface">
-            <header className="flex items-center justify-between gap-3 border-b-2 border-rule px-4 py-3">
-              <h2 className="heading text-xl">Evidence items · {c.evidence.length}</h2>
+          <section aria-label="Evidence items" className="rounded-lg bg-surface">
+            <header className="flex items-center justify-between gap-3 px-4 pt-3.5 pb-1">
+              <h2 className="heading text-[15px]">Evidence items · {c.evidence.length}</h2>
             </header>
             {c.evidence.length === 0 ? (
               <p className="p-4 text-sm text-muted">No evidence yet. Capture photos with the ChainProof phone app, or import a file below.</p>
@@ -152,19 +153,21 @@ export default function CasePage() {
               <EvidenceTable evidence={c.evidence} checksById={checksById} />
             )}
             {canWrite && isOpen && (
-              <div className="border-t border-rule p-4">
+              <div className="border-t border-border p-4">
                 <Dropzone onFile={importFile} disabled={busy === "upload"}>
                   <div>
-                    <p className="font-semibold uppercase tracking-[0.06em]">{busy === "upload" ? "Uploading…" : "Import a file"}</p>
+                    <p className="font-semibold">{busy === "upload" ? "Uploading…" : "Import a file"}</p>
                     <p className="text-muted">Drop a file or click to choose. Imported files have no capture signature. Use the phone app for signed evidence.</p>
                   </div>
                 </Dropzone>
               </div>
             )}
           </section>
-          <Card title="Where evidence was captured">
-            <MapView points={points} />
-          </Card>
+          {points.length > 0 && (
+            <Card title="Where evidence was captured">
+              <MapView points={points} />
+            </Card>
+          )}
         </div>
 
         <Card title="Custody log" actions={<span className="text-xs text-muted">{custodyQ.data?.entries.length ?? 0} entries · append-only</span>} className="min-w-0">
@@ -181,14 +184,16 @@ export default function CasePage() {
 
 function RecordField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="bg-surface px-5 py-3">
+    <div>
       <dt className="eyebrow">{label}</dt>
-      <dd className="text-base font-semibold">{children}</dd>
+      <dd className="text-[15px] font-semibold">{children}</dd>
     </div>
   );
 }
 
 const BAD_VERDICTS = new Set(["likely_manipulated", "ai_generated"]);
+const TONE_TEXT = { ok: "text-ok", neutral: "text-muted", warn: "text-warn", bad: "text-bad" } as const;
+const TONE_DOT = { ok: "bg-ok", neutral: "bg-muted", warn: "bg-warn", bad: "bg-bad" } as const;
 
 function EvidenceTable({ evidence, checksById }: { evidence: Evidence[]; checksById: Map<string, Verification["evidence"][number]> }) {
   return (
@@ -196,10 +201,10 @@ function EvidenceTable({ evidence, checksById }: { evidence: Evidence[]; checksB
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr className="eyebrow text-left">
-            <th className="border-b border-rule px-4 py-2 font-medium">Item</th>
-            <th className="border-b border-rule px-3 py-2 font-medium">File · SHA-256</th>
-            <th className="border-b border-rule px-3 py-2 font-medium">Origin</th>
-            <th className="border-b border-rule px-4 py-2 font-medium">Findings</th>
+            <th className="border-b border-border px-4 py-2 font-medium">Item</th>
+            <th className="border-b border-border px-3 py-2 font-medium">File · SHA-256</th>
+            <th className="hidden border-b border-border px-3 py-2 font-medium md:table-cell">Origin</th>
+            <th className="hidden min-w-36 border-b border-border px-4 py-2 font-medium md:table-cell">Findings</th>
           </tr>
         </thead>
         <tbody>
@@ -212,30 +217,39 @@ function EvidenceTable({ evidence, checksById }: { evidence: Evidence[]; checksB
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <span className="w-6 text-base font-semibold">{String(i + 1).padStart(2, "0")}</span>
-                    <Link href={`/evidence/${e.id}`} className="block size-[52px] shrink-0 border border-rule bg-surface-2" aria-label={`Open ${e.filename}`}>
+                    <Link href={`/evidence/${e.id}`} className="block size-[52px] shrink-0 rounded-md border border-border bg-surface-2" aria-label={`Open ${e.filename}`}>
                       {e.mime.startsWith("image/") ? (
                         <AuthedImage path={`/evidence/${e.id}/thumbnail.jpg`} alt="" className="size-full object-cover" />
                       ) : (
-                        <span className="grid size-full place-items-center text-[10px] uppercase tracking-[0.08em] text-muted">{e.mime.startsWith("video/") ? "Video" : "File"}</span>
+                        <span className="grid size-full place-items-center text-[10px] font-semibold text-muted">{e.mime.startsWith("video/") ? "Video" : "File"}</span>
                       )}
                     </Link>
                   </div>
                 </td>
-                <td className="max-w-64 px-3 py-3">
+                <td className="max-w-64 px-3 py-3 pr-4">
                   <Link href={`/evidence/${e.id}`} className="block truncate font-semibold underline-offset-4 hover:underline">{e.filename}</Link>
                   <div className="flex flex-wrap gap-x-1 text-muted"><Hash value={e.sha256} short={8} /> · {formatBytes(e.size)}</div>
+                  {/* Narrow screens: origin and verdict move under the file name instead of off-screen columns. */}
+                  <div className="mt-1 flex flex-wrap gap-x-2 md:hidden">
+                    <span className={e.provenance === "device_signed" ? "text-ok" : "text-warn"}>{e.provenance === "device_signed" ? "Signed" : "Imported"}</span>
+                    {e.forensics_label && <span className={TONE_TEXT[VERDICT_TONE[e.forensics_verdict!]]}>{e.forensics_label}</span>}
+                    {check && <CheckPill ok={check.ok}>{check.ok ? "intact" : "failed"}</CheckPill>}
+                  </div>
                 </td>
-                <td className="px-3 py-3">
-                  <div className="whitespace-nowrap">{e.provenance === "device_signed" ? "Signed capture" : "Imported · unsigned"}</div>
+                <td className="hidden px-3 py-3 md:table-cell">
+                  <div className={cx("whitespace-nowrap", e.provenance === "device_signed" ? "text-ok" : "text-warn")}>{e.provenance === "device_signed" ? "Signed capture" : "Imported · unsigned"}</div>
                   <div className="whitespace-nowrap text-muted">{gps ? `${gps.lat.toFixed(4)}, ${gps.lon.toFixed(4)}` : "No GPS"}</div>
                   <div className="whitespace-nowrap text-muted">
                     {gps?.accuracy != null && `±${Math.round(gps.accuracy)} m · `}
                     {e.tsa_status === "stamped" ? "TSA stamped" : `TSA ${e.tsa_status}`}
                   </div>
                 </td>
-                <td className="space-y-1 px-4 py-3">
+                <td className="hidden space-y-1 px-4 py-3 md:table-cell">
                   {e.forensics_label ? (
-                    <Pill tone={VERDICT_TONE[e.forensics_verdict!]}>{e.forensics_label}</Pill>
+                    <span className={cx("flex items-center gap-1.5 font-medium", TONE_TEXT[VERDICT_TONE[e.forensics_verdict!]])}>
+                      <span className={cx("size-1.5 shrink-0 rounded-full", TONE_DOT[VERDICT_TONE[e.forensics_verdict!]])} aria-hidden />
+                      {e.forensics_label}
+                    </span>
                   ) : (
                     <span className="text-muted">{e.mime.startsWith("image/") ? "Not analysed" : "—"}</span>
                   )}
@@ -250,14 +264,27 @@ function EvidenceTable({ evidence, checksById }: { evidence: Evidence[]; checksB
   );
 }
 
-function IntegrityStrip({ v, local, onVerify, busy }: { v: Verification | null; local: ChainCheck | null; onVerify: () => void; busy: boolean }) {
+function IntegrityStrip({ v, local, entries, onVerify, busy }: {
+  v: Verification | null; local: ChainCheck | null; entries: CustodyEntry[]; onVerify: () => void; busy: boolean;
+}) {
   if (!v) {
+    // Not verified in this session: say when the last full check ran and what it found, from the log itself.
+    const last = [...entries].reverse().find((e) => e.action === "VERIFIED");
+    const lastOk = last && (last.details as { ok?: boolean }).ok;
+    const since = last ? entries.filter((e) => e.seq > last.seq).length : 0;
     return (
-      <section aria-label="Integrity check" className="flex flex-wrap items-center gap-x-6 gap-y-3 border-2 border-rule bg-surface px-5 py-4">
-        <div className="heading border-2 border-rule px-4 py-2 text-2xl">Not checked</div>
-        <p className="min-w-60 flex-1 text-sm text-muted">
-          Verify re-hashes every stored file, checks each device signature and timestamp, and walks the custody chain. Your browser then re-checks the chain on its own.
-        </p>
+      <section aria-label="Integrity check" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg bg-surface px-5 py-4">
+        <div className="min-w-60 flex-1 space-y-0.5">
+          <div className="heading text-lg">
+            {!last ? "Never verified" : lastOk ? "Last full check passed" : <span className="text-bad">Last full check failed</span>}
+          </div>
+          <p className="text-[13px] text-muted">
+            {last
+              ? `Entry #${last.seq}, ${formatTs(last.ts)}${since ? ` · ${since} entr${since === 1 ? "y" : "ies"} added since` : ""}. `
+              : ""}
+            Verify re-hashes every stored file, checks each device signature and timestamp, and walks the chain; your browser then re-checks the chain on its own.
+          </p>
+        </div>
         <Button onClick={onVerify} busy={busy}>Verify integrity</Button>
       </section>
     );
@@ -272,9 +299,9 @@ function IntegrityStrip({ v, local, onVerify, busy }: { v: Verification | null; 
   const unsigned = v.evidence.length - sig.total;
   const failures = v.evidence.filter((e) => !e.ok);
   return (
-    <section aria-label="Integrity check" className={cx("border-2 bg-surface", v.ok ? "border-rule" : "border-bad")}>
+    <section aria-label="Integrity check" className={cx("rounded-lg bg-surface", !v.ok && "ring-1 ring-bad")}>
       <div className="flex flex-wrap items-center gap-x-7 gap-y-3 px-5 py-4">
-        <div className={cx("flex items-center gap-3 border-2 px-4 py-2", v.ok ? "border-ok text-ok" : "border-bad bg-bad-bg text-bad")}>
+        <div className={cx("flex items-center gap-3 rounded-md px-3.5 py-2", v.ok ? "bg-ok-bg text-ok" : "bg-bad-bg text-bad")}>
           <svg viewBox="0 0 24 24" className="size-6" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
             {v.ok ? <path d="M4 12l5 5L20 6" /> : <path d="M6 6l12 12M18 6L6 18" />}
           </svg>

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Archivo, IBM_Plex_Mono } from "next/font/google";
+import { IBM_Plex_Mono, Inter } from "next/font/google";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 
-const display = Archivo({ variable: "--font-archivo", subsets: ["latin"], axes: ["wdth"] });
+const sans = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const mono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500", "600"] });
 
 export const metadata: Metadata = {
@@ -14,8 +14,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body className={`${display.variable} ${mono.variable} font-sans antialiased`}>
+    <html lang="en" data-theme="dark" suppressHydrationWarning>
+      <head>
+        {/* Applies a saved light theme before the first paint, so the page doesn't flash dark. */}
+        <script dangerouslySetInnerHTML={{ __html: "try{if(localStorage.getItem('chainproof-theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}" }} />
+      </head>
+      <body className={`${sans.variable} ${mono.variable} font-sans antialiased`}>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

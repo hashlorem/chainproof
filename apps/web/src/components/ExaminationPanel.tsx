@@ -19,10 +19,16 @@ const DEFAULT_H2 = "The image is an unaltered record of what the camera captured
  * The examiner's side of an evidence item: notes, a conclusion on a stated scale, and a second examiner's review.
  * Everything posted here is a custody entry, so nothing can be edited or deleted afterwards. A changed mind is a new entry.
  */
-export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
+export function ExaminationPanel({ evidenceId, canWrite, userId, analysed, onChange }: {
   evidenceId: string; canWrite: boolean; userId: string | undefined; analysed: boolean;
+  /** Told about every new state, so the page's examination steps stay current. */
+  onChange?: (exam: Examination) => void;
 }) {
-  const { data: exam, error, setData } = useApi<Examination>(`/evidence/${evidenceId}/examination`);
+  const { data: exam, error, setData: setExam } = useApi<Examination>(`/evidence/${evidenceId}/examination`);
+  const setData = (x: Examination) => {
+    setExam(x);
+    onChange?.(x);
+  };
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -77,6 +83,15 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
       a.click();
       URL.revokeObjectURL(a.href);
     });
+  const downloadCopy = (sha256: string, filename: string) =>
+    run(`copy-${sha256}`, async () => {
+      const { blob } = await api.blob(`/evidence/${evidenceId}/compared/${sha256}`);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
   const startConclusion = () => {
     if (c) setForm({ h1: c.h1, h2: c.h2, level: c.level_key, rationale: c.rationale, limitations: c.limitations });
     setConcluding(true);
@@ -97,10 +112,10 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
         <section className="space-y-2">
           <h3 className="heading text-lg">Notes</h3>
           {exam.notes.length === 0 ? <p className="text-sm text-muted">No notes yet. Write down what you did and saw, as you go.</p> : (
-            <ol className="divide-y divide-border border border-rule">
+            <ol className="divide-y divide-border rounded-md border border-border">
               {exam.notes.map((n) => (
                 <li key={n.seq} className="grid gap-1 p-3 sm:grid-cols-[10rem_minmax(0,1fr)]">
-                  <span className="eyebrow">#{n.seq} · {formatTs(n.ts)}<br />{n.by}</span>
+                  <span className="text-xs text-muted">#{n.seq} · {formatTs(n.ts)}<br />{n.by}</span>
                   <p className="whitespace-pre-wrap text-sm">{n.text}</p>
                 </li>
               ))}
@@ -118,18 +133,22 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
         {exam.comparisons.length > 0 && (
           <section className="space-y-2">
             <h3 className="heading text-lg">Comparisons with copies</h3>
-            <ol className="divide-y divide-border border border-rule">
+            <ol className="divide-y divide-border rounded-md border border-border">
               {exam.comparisons.map((c) => (
-                <li key={c.seq} className="grid gap-1 p-3 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto] sm:items-center">
-                  <span className="eyebrow">#{c.seq} · {formatTs(c.ts)}<br />{c.by}</span>
+                <li key={c.seq} className="grid gap-2 p-3 text-sm sm:grid-cols-[10rem_minmax(0,1fr)_auto_auto] sm:items-center">
+                  <span className="text-xs text-muted">#{c.seq} · {formatTs(c.ts)}<br />{c.by}</span>
                   <span className="truncate">{c.filename} <span className="font-mono text-xs text-muted">{c.sha256.slice(0, 12)}…</span></span>
                   {c.regions > 0
                     ? <Pill tone="bad">{`${c.regions} changed region(s) · ${(c.changed_ratio * 100).toFixed(1)}%`}</Pill>
                     : <Pill tone="ok">No changes</Pill>}
+                  {c.kept
+                    ? <Button variant="ghost" onClick={() => downloadCopy(c.sha256, c.filename)} busy={busy === `copy-${c.sha256}`}
+                              title="The questioned file, kept with this item. Downloading is logged.">Download copy</Button>
+                    : <span className="text-xs text-muted" title="Compared before copies were kept">hash only</span>}
                 </li>
               ))}
             </ol>
-            <p className="text-xs text-muted">Difference maps are included in the examination report.</p>
+            <p className="text-xs text-muted">Each compared copy is kept with this item so the comparison can be repeated. Difference maps are in the examination report.</p>
           </section>
         )}
 
@@ -139,8 +158,8 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
             {canWrite && !concluding && <Button variant="secondary" onClick={startConclusion}>{c ? "Revise conclusion" : "Record conclusion"}</Button>}
           </div>
           {c && !concluding && (
-            <div className="border-2 border-rule">
-              <p className="border-b-2 border-rule p-3 text-sm font-semibold">
+            <div className="rounded-lg border border-border">
+              <p className="border-b border-border p-3 text-sm font-semibold">
                 {c.level_key === "none" ? "The findings do not help decide between H1 and H2." : `The findings provide ${c.level} for H1 rather than H2.`}
               </p>
               <dl className="divide-y divide-border px-3">
@@ -154,7 +173,7 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
           )}
           {!c && !concluding && <p className="text-sm text-muted">No conclusion yet. The automated findings above are indicators, not an opinion.</p>}
           {concluding && (
-            <form onSubmit={conclude} className="space-y-3 border-2 border-rule p-3">
+            <form onSubmit={conclude} className="space-y-3 rounded-lg border border-border p-3">
               <label className="block space-y-1"><span className="eyebrow">H1 · the proposition you are testing</span>
                 <input className={inputClass} value={form.h1} onChange={(e) => setForm({ ...form, h1: e.target.value })} required minLength={3} /></label>
               <label className="block space-y-1"><span className="eyebrow">H2 · the alternative</span>
@@ -162,7 +181,7 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
               <fieldset className="space-y-1">
                 <legend className="eyebrow mb-1">How much do the findings support H1 over H2?</legend>
                 {(Object.keys(exam.levels) as ConclusionLevel[]).map((k) => (
-                  <label key={k} className={cx("flex cursor-pointer gap-3 border border-rule p-2 text-sm", form.level === k && "bg-surface-2")}>
+                  <label key={k} className={cx("flex cursor-pointer gap-3 rounded-md border border-border p-2 text-sm", form.level === k && "bg-surface-2")}>
                     <input type="radio" name="level" value={k} checked={form.level === k} onChange={() => setForm({ ...form, level: k })} required />
                     <span><span className="font-semibold capitalize">{exam.levels[k]}</span> <span className="text-muted">· {LEVEL_HELP[k]}</span></span>
                   </label>
@@ -185,7 +204,7 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
           <section className="space-y-2">
             <h3 className="heading text-lg">Technical review</h3>
             {exam.review ? (
-              <div className={cx("border-2 p-3 text-sm", exam.review.agrees ? "border-ok" : "border-bad bg-bad-bg")}>
+              <div className={cx("rounded-lg p-3 text-sm", exam.review.agrees ? "bg-ok-bg" : "bg-bad-bg")}>
                 <Pill tone={exam.review.agrees ? "ok" : "bad"}>{exam.review.agrees ? "Agrees" : "Does not agree"}</Pill>
                 <p className="mt-2 whitespace-pre-wrap">{exam.review.comment}</p>
                 <p className="mt-1 text-xs text-muted">{exam.review.by} · {formatTs(exam.review.ts)}</p>
@@ -193,7 +212,7 @@ export function ExaminationPanel({ evidenceId, canWrite, userId, analysed }: {
             ) : ownConclusion ? (
               <p className="text-sm text-muted">Waiting for a second examiner. You can&apos;t review your own conclusion.</p>
             ) : canWrite ? (
-              <form onSubmit={submitReview} className="space-y-2 border-2 border-rule p-3">
+              <form onSubmit={submitReview} className="space-y-2 rounded-lg border border-border p-3">
                 <p className="text-sm">Check the method and the wording. Could another examiner reach the same result from these notes?</p>
                 <div className="flex gap-2">
                   <Button type="button" variant={review.agrees === true ? "primary" : "secondary"} onClick={() => setReview({ ...review, agrees: true })}>Agree</Button>

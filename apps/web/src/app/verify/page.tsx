@@ -14,7 +14,7 @@ export default function PublicVerifyPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="heading text-4xl">Verify a file</h1>
+        <h1 className="heading text-2xl">Verify a file</h1>
         <p className="text-sm text-muted">
           Got a photo or a ChainProof PDF report? Check that it is exactly the version on record. Your file is hashed inside this browser and
           only the hash is sent, so the file itself never leaves your computer.

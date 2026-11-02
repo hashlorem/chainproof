@@ -5,7 +5,7 @@ Examine images on your own machine, without the server or a case.
     uv run python -m scripts.examine batch folder/ --out exam/
 
 The input is hashed first, analysed only as a copy in a temporary folder, and hashed again at the end. If the
-two hashes differ the run fails. Output per image: report.json, ela.png, copymove.png, examination.pdf.
+two hashes differ the run fails. Output per image: report.json, ela.png, copymove.jpg, examination.pdf.
 """
 
 import argparse
@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from importlib.metadata import version
 from pathlib import Path
 
-from app.forensics.verdict import run_all, split_images
+from app.forensics.verdict import image_file, run_all, split_images
 from app.reports.examination import build_examination
 
 IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
@@ -67,16 +67,17 @@ def examine(path: Path, out: Path, examiner: str | None = None, source: str | No
         raise SystemExit(f"{path} changed during the examination ({before} → {after}). Results are not reliable.")
 
     out.mkdir(parents=True, exist_ok=True)
-    pngs = {name: base64.b64decode(b64) for name, b64 in images.items()}
-    for name, data in pngs.items():
-        (out / f"{name}.png").write_bytes(data)
+    pictures = {filename: base64.b64decode(b64) for filename, b64 in images.items()}
+    for filename, data in pictures.items():
+        (out / filename).write_bytes(data)
     subject = {"filename": path.name, "sha256": before, "sha256_after": after, "size": path.stat().st_size, "mime": mime,
                "source": source or f"Local file {path}", "acquired_at": datetime.fromtimestamp(path.stat().st_mtime, UTC).strftime(
                    "%Y-%m-%dT%H:%M:%SZ") + " (file modified time)"}
     method = _method(examiner)
     record = {"subject": subject, "method": method, "report": report}
     (out / "report.json").write_text(json.dumps(record, indent=1))
-    pdf = build_examination(subject, report, {"original": original_bytes, **pngs}, method)
+    shown = {"ela": image_file(report, "ela", "ela"), "copymove": image_file(report, "copy_move", "copymove")}
+    pdf = build_examination(subject, report, {"original": original_bytes, **{k: pictures.get(f) for k, f in shown.items() if f}}, method)
     (out / "examination.pdf").write_bytes(pdf)
     record["pdf_sha256"] = hashlib.sha256(pdf).hexdigest()
     return record

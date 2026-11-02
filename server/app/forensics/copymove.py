@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from app.forensics.common import finding, png_b64
+from app.forensics.common import finding, jpeg_b64
 
 MIN_DISTANCE = 30   # px: ignore matches between neighbouring points
 MIN_CLUSTER = 12    # matches that must follow one transformation. Chosen on half the validation phones (docs/validation)
@@ -140,7 +140,7 @@ def _find_groups(rows: np.ndarray, min_side: float, rng: np.random.Generator) ->
 def analyze(img: Image.Image) -> dict:
     gray = cv2.cvtColor(np.asarray(img), cv2.COLOR_RGB2GRAY)
     rows = _keypoint_pairs(gray)
-    empty = {"pairs": int(len(rows)), "regions": [], "overlay_png": None, "findings": []}
+    empty = {"pairs": int(len(rows)), "regions": [], "overlay_jpg": None, "findings": []}
     if len(rows) < MIN_CLUSTER:
         return empty
     groups = _find_groups(rows, MIN_SIDE * min(img.size), np.random.default_rng(0))
@@ -172,7 +172,7 @@ def analyze(img: Image.Image) -> dict:
         found = finding("medium", "Possible cloned area",
                         f"{total} points repeat with the same transformation (yellow = source, red = copy). This can be a copied "
                         f"object, or two identical real objects.{detail_tail}")
-    return {"pairs": int(len(rows)), "regions": regions, "overlay_png": png_b64(overlay), "findings": [found]}
+    return {"pairs": int(len(rows)), "regions": regions, "overlay_jpg": jpeg_b64(overlay), "findings": [found]}
 
 
 def _describe(r: dict) -> str:

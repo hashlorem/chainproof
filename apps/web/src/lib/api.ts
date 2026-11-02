@@ -32,6 +32,8 @@ export interface Finding {
   severity: "info" | "low" | "medium" | "high"; title: string; detail: string; check: string;
   /** How often this check is wrong, measured in docs/validation. Missing if the check has not been validated. */
   validation?: string | null;
+  /** The innocent explanation to rule out before relying on this finding. */
+  alternative?: string | null;
 }
 export interface ForensicReport {
   verdict: "verified_capture" | "ai_generated" | "likely_manipulated" | "suspicious" | "no_signs";
@@ -40,7 +42,7 @@ export interface ForensicReport {
   checks: {
     metadata: { format: string; width: number; height: number; tags: Record<string, string>; gps: { lat: number; lon: number } | null };
     ela: { mean_error: number; outlier_ratio: number; heatmap_png?: string; has_ela_image?: boolean };
-    copy_move: { pairs: number; regions: unknown[]; overlay_png?: string | null; has_copymove_image?: boolean };
+    copy_move: { pairs: number; regions: unknown[]; overlay_jpg?: string | null; has_copymove_image?: boolean; copymove_file?: string };
     c2pa: { present: boolean; generator?: string; issuer?: string; validation_state?: string; ai_generated?: boolean; trusted?: boolean };
     /** File history: what the file's structure says about where it has been. Older reports don't have it. */
     structure?: {
@@ -59,6 +61,8 @@ export interface MatchResponse { sha256: string; matches: EvidenceMatch[]; thres
 export interface CompareResult {
   aligned: string; changed_ratio: number; regions: number[][]; overlay_png: string; findings: Finding[];
   distance: number; questioned_sha256: string; validation: string | null;
+  /** Both images in the same frame, for the side-by-side and swipe views. */
+  original_jpg?: string; aligned_jpg?: string;
 }
 export type ConclusionLevel = "none" | "limited" | "moderate" | "strong" | "very_strong";
 export interface Examination {
@@ -67,6 +71,8 @@ export interface Examination {
   comparisons: {
     seq: number; ts: string; by: string; filename: string; sha256: string; distance: number;
     changed_ratio: number; regions: number; aligned: string | null; overlay: string | null;
+    /** The questioned file itself is stored (comparisons from 1 Nov 2026 on). */
+    kept: boolean;
   }[];
   conclusion: {
     seq: number; ts: string; by: string; by_id: string; question: string; h1: string; h2: string;
@@ -134,8 +140,12 @@ export function formatBytes(n: number) {
   return `${(n / 1024 ** 2).toFixed(1)} MB`;
 }
 
+/** "1 Nov 2026, 14:07:12 UTC". Always UTC: time is evidence, and every examiner must read the same clock. */
 export function formatTs(ts: string | null | undefined) {
   if (!ts) return "—";
   const d = new Date(ts);
-  return isNaN(d.getTime()) ? ts : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "medium" });
+  if (isNaN(d.getTime())) return ts;
+  return d.toLocaleString("en-GB", {
+    timeZone: "UTC", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+  }) + " UTC";
 }

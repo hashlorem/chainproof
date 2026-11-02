@@ -17,7 +17,7 @@ export default function AccountPage() {
   return (
     <div className="max-w-md space-y-6">
       <div>
-        <h1 className="heading text-4xl">Your account</h1>
+        <h1 className="heading text-2xl">Your account</h1>
         <p className="text-sm text-muted">{user?.name} · {user?.email} · <span className="capitalize">{user?.role}</span></p>
       </div>
       <Card title="Change password">
@@ -44,7 +44,7 @@ export default function AccountPage() {
           <input className={inputClass} type="password" placeholder="New password (min 8 characters)" autoComplete="new-password" minLength={8} value={next} onChange={(e) => setNext(e.target.value)} required />
           <input className={inputClass} type="password" placeholder="Repeat new password" autoComplete="new-password" minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
           {error && <ErrorBox>{error}</ErrorBox>}
-          {done && <p className="text-sm text-ok">Password changed.</p>}
+          {done && <p className="text-sm">Password changed.</p>}
           <Button type="submit" busy={busy}>Change password</Button>
         </form>
       </Card>

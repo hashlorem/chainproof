@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import io
 import json
@@ -16,6 +17,7 @@ from app.core import tsa
 from app.core.chain import append_entry
 from app.core.security import current_user, require_role
 from app.core.signing import verify_manifest
+from app.forensics import alternatives
 from app.forensics.similarity import image_phash
 from app.db import SessionLocal, get_db
 from app.models import Device, Evidence, User
@@ -144,7 +146,8 @@ def evidence_detail(evidence_id: str, _: User = Depends(current_user), db: Sessi
     if ev.device_id:
         device = db.get(Device, ev.device_id)
         out["device"] = {"id": device.id, "name": device.name, "revoked": device.revoked}
-    out["forensics"] = ev.forensics_json
+    # Reports stored before "what else explains it" existed get it on the way out; the stored record is untouched.
+    out["forensics"] = alternatives.annotate(copy.deepcopy(ev.forensics_json)) if ev.forensics_json else None
     return out
 
 

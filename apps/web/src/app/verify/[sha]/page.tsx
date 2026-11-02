@@ -10,7 +10,7 @@ export default function VerifyHashPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="heading text-4xl">Evidence record</h1>
+        <h1 className="heading text-2xl">Evidence record</h1>
         <p className="text-sm text-muted">
           Have the file? <Link href="/verify" className="text-accent hover:underline">Drop it here</Link> to confirm your copy matches this record.
         </p>

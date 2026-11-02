@@ -164,3 +164,11 @@ def test_only_supervisors_create_users(client, investigator, supervisor):
     assert client.post("/auth/users", json=body, headers=supervisor["headers"]).status_code == 201
     assert client.post("/auth/users", json=body, headers=supervisor["headers"]).status_code == 409
     assert client.post("/auth/login", json={"email": "New.Person@test.dev", "password": "longenough1"}).status_code == 200
+
+
+def test_integrity_check_of_one_item_adds_no_custody_entry(client, investigator, phone, case_id):
+    ev = phone.upload(case_id, b"\xff\xd8 a capture").json()["id"]
+    before = len(client.get(f"/cases/{case_id}/custody", headers=investigator["headers"]).json()["entries"])
+    r = client.get(f"/evidence/{ev}/integrity", headers=investigator["headers"]).json()
+    assert r["ok"] and r["checks"]["file_hash"]["ok"] and r["checked_at"].endswith("Z")
+    assert len(client.get(f"/cases/{case_id}/custody", headers=investigator["headers"]).json()["entries"]) == before

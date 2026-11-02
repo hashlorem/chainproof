@@ -22,6 +22,7 @@ from app.config import settings
 from app.core import tsa
 from app.core.chain import append_entry
 from app.models import CustodyEntry
+from app.core.timefmt import utc_text
 
 log = logging.getLogger(__name__)
 
@@ -106,5 +107,5 @@ def describe(anchors: dict) -> str:
     if not anchors["ok"]:
         return "; ".join(anchors["problems"])
     a = anchors["latest"]
-    return (f"{anchors['count']} anchor(s) verify; entries up to #{a['head_seq']} were timestamped by FreeTSA at {a['tsa_time']} "
+    return (f"{anchors['count']} anchor(s) verify; entries up to #{a['head_seq']} were timestamped by FreeTSA at {utc_text(a['tsa_time'])} "
             f"(hash {a['head_hash']})")
