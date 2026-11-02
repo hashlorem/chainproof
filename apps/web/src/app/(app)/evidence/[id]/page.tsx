@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { ComparePanel } from "@/components/CompareView";
-import { CustodyTimeline } from "@/components/CustodyTimeline";
+import { CustodyTimeline, sealedUpTo } from "@/components/CustodyTimeline";
 import { ExaminationPanel } from "@/components/ExaminationPanel";
-import { ExaminationSteps, FileRecord, Findings, InspectorSection, Verdict, examinationSteps } from "@/components/Inspector";
+import { ExaminationSteps, FileRecord, Findings, InspectorSection, TechnicalDetails, Verdict, examinationSteps } from "@/components/Inspector";
 import { MapView } from "@/components/MapView";
 import { useStatusCase } from "@/components/Shell";
 import { Viewer } from "@/components/Viewer";
-import { Button, Card, ErrorBox, Field, Hash, Loading, cx } from "@/components/ui";
+import { Button, Card, ErrorBox, Hash, Loading, cx } from "@/components/ui";
 import { api, formatTs, type CustodyResponse, type Evidence, type EvidenceCheck, type Examination, type ForensicReport, type User } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
@@ -96,7 +96,7 @@ export default function EvidencePage() {
         {/* The viewer stays in view while the inspector scrolls: eyes on the evidence while reading the findings. */}
         <div className="min-w-0 flex-[999_1_560px] lg:sticky lg:top-16">
           {isImage || isVideo ? (
-            <Viewer evidenceId={id} filename={e.filename} report={report} isVideo={isVideo} key={report ? report.score + report.verdict : "none"} />
+            <Viewer evidenceId={id} report={report} isVideo={isVideo} key={report ? report.score + report.verdict : "none"} />
           ) : (
             <Card title="Preview"><p className="text-muted">No preview for {e.mime}. Download the original to open it.</p></Card>
           )}
@@ -132,19 +132,18 @@ export default function EvidencePage() {
         </aside>
       </div>
 
-      <div className="flex flex-wrap items-start gap-4">
-        <Card title={`Custody log · this item · ${itemEntries.length}`} className="min-w-0 flex-[2_1_420px]"
-              actions={<Link href={`/cases/${e.case_id}`} className="text-[13px] text-accent hover:underline">Whole case</Link>}>
-          {custodyQ.data ? (
-            <CustodyTimeline entries={itemEntries} users={users} evidenceNames={new Map([[id, "this item"]])} />
-          ) : <Loading />}
+      {isImage && (
+        <Card title="Compare a copy with this original">
+          <ComparePanel evidenceId={id} onCompared={() => { setExamKey((k) => k + 1); examQ.reload(); custodyQ.reload(); }} />
         </Card>
-        {isImage && (
-          <Card title="Compare a copy with this original" className="min-w-0 flex-[1_1_320px]">
-            <ComparePanel evidenceId={id} onCompared={() => { setExamKey((k) => k + 1); examQ.reload(); custodyQ.reload(); }} />
-          </Card>
-        )}
-      </div>
+      )}
+
+      <Card title={`Custody log · this item · ${itemEntries.length}`}
+            actions={<Link href={`/cases/${e.case_id}`} className="text-[13px] text-accent hover:underline">Whole case</Link>}>
+        {custodyQ.data ? (
+          <CustodyTimeline entries={itemEntries} users={users} evidenceNames={new Map([[id, "this item"]])} sealed={sealedUpTo(custodyQ.data.entries)} />
+        ) : <Loading />}
+      </Card>
 
       <ExaminationPanel key={examKey} evidenceId={id} canWrite={canWrite} userId={user?.id} analysed={!!report}
                         onChange={(x) => { examQ.setData(x); custodyQ.reload(); }} />
@@ -168,42 +167,5 @@ function PreservationBanner({ check, error }: { check: (EvidenceCheck & { checke
       </span>
       {!failed.length && hash && <span className="text-xs opacity-80">{Object.keys(check.checks).length > 1 && "Signature, timestamp and kept copies re-checked too."}</span>}
     </div>
-  );
-}
-
-function TechnicalDetails({ report }: { report: ForensicReport }) {
-  const meta = report.checks.metadata;
-  const c2pa = report.checks.c2pa;
-  const s = report.checks.structure;
-  const block = (title: string, children: ReactNode) => (
-    <div className="space-y-0.5">
-      <div className="pt-2 text-xs font-semibold">{title}</div>
-      <dl>{children}</dl>
-    </div>
-  );
-  return (
-    <details>
-      <summary className="cursor-pointer text-muted hover:text-ink">File structure, metadata and credentials</summary>
-      {s && block("File history", <>
-        <Field label="Looks like">{s.label}</Field>
-        {s.quality != null && <Field label="Compression">{`about quality ${s.quality} · ${s.standard_table ? "standard" : "custom"} table · ${s.progressive ? "progressive" : "baseline"}`}</Field>}
-        {!!s.blocks?.length && <Field label="Header blocks">{s.blocks.join(" → ")}</Field>}
-      </>)}
-      {block("Metadata", <>
-        <Field label="Format">{meta.format} · {meta.width} × {meta.height}</Field>
-        {Object.entries(meta.tags).map(([k, v]) => <Field key={k} label={k}>{v}</Field>)}
-        {meta.gps && <Field label="GPS">{meta.gps.lat}, {meta.gps.lon}</Field>}
-      </>)}
-      {block("Content Credentials (C2PA)", c2pa.present ? <>
-        <Field label="Generator">{c2pa.generator || "—"}</Field>
-        <Field label="Signed by">{c2pa.issuer || "—"}</Field>
-        <Field label="Validation">{c2pa.validation_state || "—"}{c2pa.trusted === false && " (signer not on the C2PA trust list)"}</Field>
-      </> : <p className="text-muted">None embedded.</p>)}
-      {block("Measurements", <>
-        <Field label="ELA mean error">{report.checks.ela.mean_error}</Field>
-        <Field label="ELA outlier area">{(report.checks.ela.outlier_ratio * 100).toFixed(2)}%</Field>
-        <Field label="Clone pairs">{report.checks.copy_move.pairs}</Field>
-      </>)}
-    </details>
   );
 }

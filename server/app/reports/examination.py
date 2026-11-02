@@ -13,7 +13,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table
 
-from app.reports.pdf import BAD, INK, MONO, NA, OK, SMALL, _table, styles
+from app.core.timefmt import utc_text
+from app.reports.pdf import BAD, EYEBROW, INK, MONO, MUTED, NA, OK, SMALL, _table, styles
 
 SEVERITY_COLOR = {"high": BAD, "medium": NA, "low": NA, "info": INK}
 
@@ -30,8 +31,7 @@ def _img(data: bytes | None, width_mm: float) -> Image | Paragraph:
 
 
 def _ts(ts: str | None) -> str:
-    """2026-10-30T12:29:43.114174Z -> 2026-10-30 12:29:43 UTC"""
-    return f"{ts[:19].replace('T', ' ')} UTC" if ts else "—"
+    return utc_text(ts)
 
 
 def _p(text: str, style=SMALL) -> Paragraph:
@@ -54,7 +54,8 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     checks = report["checks"]
     h2, body = styles["Heading2"], styles["BodyText"]
     story = [
-        Paragraph("Image Examination Report", styles["Title"]),
+        Paragraph("CHAINPROOF · IMAGE EXAMINATION REPORT", EYEBROW),
+        _p(subject["filename"], styles["Title"]),
         _table([
             ["Item", _p(subject["filename"]), "Examined", _p(_ts(method["examined_at"]))],
             ["Question", _p(exam.get("question") or "Is this image an unaltered record of what the camera captured?"), "Examiner",
@@ -72,7 +73,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
         ["SHA-256 at intake", _p(subject["sha256"], MONO)],
         ["SHA-256 after analysis", _p(f"{after or '—'} ({integrity})", MONO)],
         ["Size / type", f"{subject['size']:,} bytes · {subject['mime']}"],
-        ["Received", _p(subject.get("acquired_at") or "not recorded")],
+        ["Received", _p(_ts(subject["acquired_at"]) if subject.get("acquired_at") else "not recorded")],
         ["Custody log anchor", _p(subject.get("custody_anchor") or "not recorded")],
     ], [38 * mm, 142 * mm], header=False), Spacer(1, 3 * mm)]
 
@@ -197,7 +198,7 @@ def build_examination(subject: dict, report: dict, images: dict, method: dict, e
     def footer(canvas, doc_):
         canvas.saveState()
         canvas.setFont("Helvetica", 7)
-        canvas.setFillColor(INK)
+        canvas.setFillColor(MUTED)
         canvas.drawString(15 * mm, 8 * mm, f"ChainProof image examination · {subject['sha256'][:16]}… · {_ts(method['examined_at'])}")
         canvas.drawRightString(A4[0] - 15 * mm, 8 * mm, f"Page {doc_.page}")
         canvas.restoreState()

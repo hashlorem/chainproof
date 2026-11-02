@@ -2,9 +2,9 @@
 
 import type { ReactNode } from "react";
 import { formatBytes, formatTs, type Evidence, type Examination, type Finding, type ForensicReport } from "@/lib/api";
-import { cx } from "./ui";
+import { Field, VERDICT_TONE, cx } from "./ui";
 
-const VERDICT_COLOR = { verified_capture: "text-ok", no_signs: "text-ink", suspicious: "text-warn", likely_manipulated: "text-bad", ai_generated: "text-bad" } as const;
+const VERDICT_COLOR = { ok: "text-ok", neutral: "text-ink", warn: "text-warn", bad: "text-bad" } as const;
 const SEVERITY = {
   high: { label: "HIGH", text: "text-bad", dot: "bg-bad" },
   medium: { label: "MEDIUM", text: "text-warn", dot: "bg-warn" },
@@ -27,7 +27,7 @@ export function InspectorSection({ title, children, actions }: { title: string; 
 export function Verdict({ report }: { report: ForensicReport }) {
   return (
     <div>
-      <div className={cx("heading text-[22px]", VERDICT_COLOR[report.verdict])}>{report.label}</div>
+      <div className={cx("heading text-[22px]", VERDICT_COLOR[VERDICT_TONE[report.verdict]])}>{report.label}</div>
       <p className="text-muted">Indicators, not proof. The conclusion is the examiner&apos;s.</p>
     </div>
   );
@@ -132,5 +132,43 @@ export function FileRecord({ e }: { e: Evidence }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/** File structure, metadata, Content Credentials and raw measurements, folded away under the findings. */
+export function TechnicalDetails({ report }: { report: ForensicReport }) {
+  const meta = report.checks.metadata;
+  const c2pa = report.checks.c2pa;
+  const s = report.checks.structure;
+  const block = (title: string, children: ReactNode) => (
+    <div className="space-y-0.5">
+      <div className="pt-2 text-xs font-semibold">{title}</div>
+      <dl>{children}</dl>
+    </div>
+  );
+  return (
+    <details>
+      <summary className="cursor-pointer text-muted hover:text-ink">File structure, metadata and credentials</summary>
+      {s && block("File history", <>
+        <Field label="Looks like">{s.label}</Field>
+        {s.quality != null && <Field label="Compression">{`about quality ${s.quality} · ${s.standard_table ? "standard" : "custom"} table · ${s.progressive ? "progressive" : "baseline"}`}</Field>}
+        {!!s.blocks?.length && <Field label="Header blocks">{s.blocks.join(" → ")}</Field>}
+      </>)}
+      {block("Metadata", <>
+        <Field label="Format">{meta.format} · {meta.width} × {meta.height}</Field>
+        {Object.entries(meta.tags).map(([k, v]) => <Field key={k} label={k}>{v}</Field>)}
+        {meta.gps && <Field label="GPS">{meta.gps.lat}, {meta.gps.lon}</Field>}
+      </>)}
+      {block("Content Credentials (C2PA)", c2pa.present ? <>
+        <Field label="Generator">{c2pa.generator || "—"}</Field>
+        <Field label="Signed by">{c2pa.issuer || "—"}</Field>
+        <Field label="Validation">{c2pa.validation_state || "—"}{c2pa.trusted === false && " (signer not on the C2PA trust list)"}</Field>
+      </> : <p className="text-muted">None embedded.</p>)}
+      {block("Measurements", <>
+        <Field label="ELA mean error">{report.checks.ela.mean_error}</Field>
+        <Field label="ELA outlier area">{(report.checks.ela.outlier_ratio * 100).toFixed(2)}%</Field>
+        <Field label="Clone pairs">{report.checks.copy_move.pairs}</Field>
+      </>)}
+    </details>
   );
 }

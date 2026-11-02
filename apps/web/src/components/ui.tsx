@@ -41,6 +41,9 @@ export function Card({ title, actions, children, className }: { title?: ReactNod
 }
 
 type Tone = "ok" | "bad" | "warn" | "info" | "neutral";
+
+/** Verdict colours, one map for every screen. Green is only for a verified capture: "no signs" is not proof, so it stays grey. */
+export const VERDICT_TONE = { verified_capture: "ok", no_signs: "neutral", suspicious: "warn", likely_manipulated: "bad", ai_generated: "bad" } as const;
 export function Pill({ tone = "neutral", children }: { tone?: Tone; children: ReactNode }) {
   const tones: Record<Tone, string> = {
     ok: "bg-ok-bg text-ok",

@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ComparePanel } from "@/components/CompareView";
 import { Dropzone } from "@/components/Dropzone";
-import { ForensicsView } from "@/components/ForensicsView";
-import { Button, Card, ErrorBox, Loading, Pill, inputClass } from "@/components/ui";
+import { Findings, InspectorSection, TechnicalDetails, Verdict } from "@/components/Inspector";
+import { ImageViewer, reportViews, type View } from "@/components/Viewer";
+import { Button, Card, ErrorBox, Loading, PageTitle, Pill, inputClass } from "@/components/ui";
 import { api, formatTs, type Case, type Evidence, type ForensicReport, type MatchResponse } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useApi } from "@/lib/useApi";
@@ -66,15 +67,21 @@ export default function AnalyzePage() {
     }
   }
 
+  const views: View[] = report && preview ? [
+    { id: "photo", label: "Photo", hint: "The file you dropped. It stays in this browser and the server keeps nothing.", src: { kind: "inline", url: `data:${file?.type || "image/jpeg"};base64,${preview}` } },
+    ...reportViews(report, (name) => ({ kind: "inline", url: name === "ela" ? `data:image/png;base64,${report.checks.ela.heatmap_png}` : `data:image/jpeg;base64,${report.checks.copy_move.overlay_jpg}` })),
+  ] : [];
+  const reset = () => { setReport(null); setPreview(null); setFile(null); setMatches(null); };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="heading text-2xl">Check a photo</h1>
-        <p className="text-sm text-muted">
-          Look for signs of editing in any image: a tip from the public, a screenshot from social media, a photo from a suspect&apos;s phone.
-          Nothing is saved and nothing is added to a case.
-        </p>
-      </div>
+    <div className="space-y-5">
+      <PageTitle kicker="Quick check · not recorded" actions={report && <Button variant="secondary" onClick={reset}>Check another photo</Button>}>
+        Check a photo
+      </PageTitle>
+      <p className="-mt-3 max-w-3xl text-[13px] text-muted">
+        Look for signs of editing in any image: a tip from the public, a screenshot from social media, a photo from a suspect&apos;s phone.
+        Nothing is saved and nothing is added to a case.
+      </p>
       {!report && !busy && (
         <Dropzone onFile={analyze} accept="image/*">
           <div>
@@ -83,25 +90,36 @@ export default function AnalyzePage() {
           </div>
         </Dropzone>
       )}
-      {busy && <Loading label="Analysing: metadata, error levels, cloned areas, Content Credentials…" />}
+      {busy && <Loading label="Analysing: metadata, file history, cloned areas, Content Credentials…" />}
       {error && <ErrorBox>{error}</ErrorBox>}
       {report && (
-        <Card title="Result" actions={<Button variant="secondary" onClick={() => { setReport(null); setPreview(null); setFile(null); setMatches(null); }}>Check another</Button>}>
-          <ForensicsView
-            report={report}
-            original={preview ? { kind: "b64", data: preview, mime: file?.type || "image/jpeg" } : null}
-            ela={report.checks.ela.heatmap_png ? { kind: "b64", data: report.checks.ela.heatmap_png } : null}
-            copymove={report.checks.copy_move.overlay_jpg ? { kind: "b64", data: report.checks.copy_move.overlay_jpg, mime: "image/jpeg" } : null}
-          />
+        <>
+          <div className="flex flex-wrap items-start gap-4">
+            <div className="min-w-0 flex-[999_1_560px] lg:sticky lg:top-16">
+              <ImageViewer views={views} report={report} initial={report.checks.copy_move.overlay_jpg ? "clones" : "photo"} />
+            </div>
+            <aside aria-label="Inspector" className="flex min-w-0 flex-[1_1_320px] flex-col gap-5 rounded-lg bg-surface p-4 lg:max-w-[380px]">
+              <InspectorSection title="Automated verdict"><Verdict report={report} /></InspectorSection>
+              <InspectorSection title="Findings"><Findings findings={report.findings} /></InspectorSection>
+              {report.validation !== undefined && (
+                <p className="text-xs text-muted">
+                  {report.validation
+                    ? `Error rates measured ${report.validation.validated_at.slice(0, 10)} on a labelled set of real phone photos.`
+                    : "These checks have not been validated yet; their error rates are unknown."}
+                </p>
+              )}
+              <TechnicalDetails report={report} />
+            </aside>
+          </div>
           {matches && (
-            <div className="mt-6 space-y-3 border-t border-border pt-4">
-              <h3 className="heading text-lg">Copies of your evidence</h3>
+            <Card title="Copies of your evidence">
+              <div className="space-y-3">
               {matches.matches.length === 0 ? (
                 <p className="text-sm text-muted">This photo doesn&apos;t look like any image held as evidence, even allowing for re-saving, resizing or rotation.</p>
               ) : (
                 <ul className="space-y-3">
                   {matches.matches.map((m) => (
-                    <li key={m.evidence_id} className="space-y-2 rounded-lg border border-border p-3">
+                    <li key={m.evidence_id} className="space-y-2 rounded-md bg-surface-2 p-3">
                       <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                         <span>
                           <Link href={`/evidence/${m.evidence_id}`} className="font-semibold underline">{m.filename}</Link>
@@ -117,12 +135,12 @@ export default function AnalyzePage() {
                 </ul>
               )}
               {matches.validation && <p className="text-xs text-muted"><span className="eyebrow">How reliable</span> {matches.validation}</p>}
-            </div>
+              </div>
+            </Card>
           )}
           {canWrite && (
-            <div className="mt-6 space-y-2 border-t border-border pt-4">
-              <h3 className="heading text-lg">Investigate this photo properly</h3>
-              <p className="text-sm text-muted">
+            <Card title="Investigate this photo properly">
+              <p className="mb-3 text-[13px] text-muted">
                 A quick check isn&apos;t recorded anywhere. To keep notes, record a conclusion, get it reviewed and export a report,
                 file the photo into a case. Its hash is recorded on arrival and every step goes into the chain of custody.
               </p>
@@ -133,9 +151,9 @@ export default function AnalyzePage() {
                 </select>
                 <Button onClick={openExamination} disabled={!caseId || !file} busy={busy}>Open an examination</Button>
               </div>
-            </div>
+            </Card>
           )}
-        </Card>
+        </>
       )}
     </div>
   );

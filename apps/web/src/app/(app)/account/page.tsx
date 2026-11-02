@@ -44,7 +44,7 @@ export default function AccountPage() {
           <input className={inputClass} type="password" placeholder="New password (min 8 characters)" autoComplete="new-password" minLength={8} value={next} onChange={(e) => setNext(e.target.value)} required />
           <input className={inputClass} type="password" placeholder="Repeat new password" autoComplete="new-password" minLength={8} value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
           {error && <ErrorBox>{error}</ErrorBox>}
-          {done && <p className="text-sm text-ok">Password changed.</p>}
+          {done && <p className="text-sm">Password changed.</p>}
           <Button type="submit" busy={busy}>Change password</Button>
         </form>
       </Card>

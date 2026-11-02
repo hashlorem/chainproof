@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image, UnidentifiedImageError
 
-from app.forensics.common import finding, open_rgb, png_b64
+from app.forensics.common import finding, jpeg_b64, open_rgb, png_b64
 
 MATCH_DISTANCE = 10      # bits out of 64; chosen on the odd-numbered VISION phones (docs/validation)
 # A heavily edited copy can drift further (a duplicated bouquet: 20 bits). Between MATCH_DISTANCE and VERIFY_DISTANCE a
@@ -150,6 +150,7 @@ def _thin_marks(original: Image.Image, questioned: Image.Image, size: tuple[int,
 def compare(original: Image.Image, questioned: Image.Image) -> dict:
     questioned = upright(original, questioned)
     ref, que, how = _align(original, questioned)
+    lined_up = que.clip(0, 255).astype(np.uint8)  # the copy as it is, only moved into the original's frame
     _match_colour(ref, que)
     blur = lambda a: cv2.GaussianBlur(a, (0, 0), 2.0)  # noqa: E731  smooths away compression noise
     diff = np.abs(blur(ref) - blur(que)).max(axis=2)
@@ -186,4 +187,7 @@ def compare(original: Image.Image, questioned: Image.Image) -> dict:
         found = finding("info", "No changes found compared with the original",
                         "After lining the copy up with the stored original, no region differs beyond recompression and resizing.")
     return {"aligned": how, "changed_ratio": round(changed, 4), "regions": regions, "size": [ref.shape[1], ref.shape[0]],
-            "overlay_png": png_b64(Image.fromarray(overlay)), "findings": [found]}
+            "overlay_png": png_b64(Image.fromarray(overlay)), "findings": [found],
+            # For side-by-side and swipe views: both images in the same frame, at the compare size.
+            "original_jpg": jpeg_b64(Image.fromarray(ref.clip(0, 255).astype(np.uint8)), 85),
+            "aligned_jpg": jpeg_b64(Image.fromarray(lined_up), 85)}

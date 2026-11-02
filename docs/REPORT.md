@@ -1,10 +1,55 @@
 # ChainProof Forensics Upgrade Report
 
-Snapshot of 31 Oct 2026.
+Snapshot of 1 Nov 2026.
 Full numbers are in
 [`docs/validation/VALIDATION.md`](validation/VALIDATION.md).
 
-ChainProof's photo checks are now tested on 1,155 labelled images, and the false-alarm rate on untouched photos fell from 22.7% to 0.8%. Every finding now says how often its check is wrong, and investigators can record notes, a conclusion and a peer review in the tamper-proof custody log. Phase 2 adds a file history and finds edited copies of stored evidence, outlining what changed.
+ChainProof keeps photo and video evidence tamper-evident from the moment it is taken to the printed report, and checks photos for editing with a measured error rate on every finding. Untouched photos are wrongly flagged 0.8% of the time, and comparing a copy with the stored original outlines 93% of edits. This report covers what ChainProof does, how to use it, how we tested it and what it can't do.
+
+## What ChainProof is
+
+ChainProof has three parts: a **phone app** that signs every photo or video at the shutter press, a **server** that keeps a tamper-evident record of everyone who touched each file, and a **web app** where investigators examine the evidence and export reports. It was built as an IT course project in cybersecurity, aimed at the way a digital forensics examiner works.
+
+```
+Phone app ──signed upload──▶ Server ◀──examine──▶ Web app (staff)
+                               ▲  ▲
+                      RFC 3161 │  └──hash lookup── Public verify
+                               ▼
+                            FreeTSA
+```
+
+The phone is the only place a capture is signed. Everything after that, from an upload to a PDF export, becomes a new entry in the server's chain, and FreeTSA's timestamps make a rewritten chain detectable even by someone holding the server's key.
+
+| Question an examiner gets asked | How ChainProof answers it |
+| --- | --- |
+| Was this photo changed after it was taken? | The phone computes its SHA-256 hash at capture; the server re-hashes it on upload and on every check |
+| Which phone took it, when and where? | A manifest (hash, GPS, time, device, user) signed with an Ed25519 key that never leaves the phone |
+| Could the time be faked? | An independent RFC 3161 timestamp from FreeTSA on every upload |
+| Who handled it since? | A custody log where each entry contains the hash of the one before it. The database refuses edits and deletes, and FreeTSA timestamps the log on every check |
+| Was the photo edited? | Clone detection (including resized and rotated copies), metadata, Content Credentials (C2PA), and a comparison against the stored original |
+| Where has this file been? | File history read from the file's structure: camera original, re-saved, Facebook, consistent with WhatsApp |
+| How far can I trust each check? | Every finding shows its measured error rate and what else could explain it |
+| Is this printed report genuine? | Every PDF is registered by its hash, and anyone can check it on the public Verify page by QR code |
+
+The strongest evidence is a photo signed in the ChainProof app at capture. Detection after the fact is the fallback for files that arrive from somewhere else.
+
+## New since 31 October
+
+Compare now catches pen marks drawn on a photo (104 of 105), and the web and phone apps share a new, calmer look built for examiners. Both are on the `redesign-2` branch and are not yet merged into `main`.
+
+| Change | Before | After |
+| --- | --- | --- |
+| Drawn marks (pen strokes, scribbles) outlined by Compare | 49% (51 of 105) | **99%** (104 of 105) |
+| Innocent copies wrongly reported as changed | 0 of 420 | **0 of 420** |
+| All edits outlined by Compare (seven edit types) | 83% of six types | **93%** (682 of 735) |
+| Compare views | Difference map only | Difference, side by side, and swipe |
+| PDF reports | Grid tables, raw ISO timestamps | Clean rules, "1 Nov 2026, 07:51:05 UTC" |
+
+- **Drawn marks.** We added a "doodle" edit type to the test set after a real hand edit of our bouquet photo showed a gap. Thin strokes now get their own pass in the difference map. A photo examined on its own still shows no sign of a drawn mark (0 of 105), so Compare needs the original.
+- **Redesign ("Examiner").** Dark by default, panes instead of boxes, and colour only where it means something: green for verified, amber for unverified (an imported file), red for a problem, grey for nothing found. Before this, "No signs of manipulation" showed in green, which reads as "verified" and overstates what the checks can say.
+- **Custody log as a chain.** The case page draws the log as a spine: solid where FreeTSA has timestamped the entries, dashed after that, with a seal on each anchor.
+
+These figures come from a validation run on the branch on 1 November 2026. The official report in `docs/validation/VALIDATION.md` is regenerated after the merge. Adding the 105 doodles lowers the overall "Suspicious or worse" detection rate from 69% to 60%, because those edits are only visible to Compare.
 
 ## At a glance
 
@@ -66,13 +111,13 @@ For comparison: untouched photos were wrongly flagged 0.8% of the time (4 of 525
 
 ## Phase 2: where a photo has been, and copies of evidence
 
-Phase 2 added two features. Comparing a copy against the stored original now catches 95% of splices, the edit that a photo examined on its own never reveals.
+Phase 2 added two features. Comparing a copy against the stored original now catches every splice in the test set (105 of 105), the edit that a photo examined on its own never reveals.
 
 | Feature | What it does | Measured on the test set |
 | --- | --- | --- |
 | File history | Reads how the file is built to say where it has been: camera original, re-saved by other software (even with copied camera data), passed through Facebook, consistent with WhatsApp, Messenger | Camera originals 100% (105/105) and Facebook 100% (105/105) recognised; WhatsApp 99% (104/105); no re-saved file ever called a camera original (0 of 1,050) |
 | Copies of evidence: search | Finds stored evidence a photo was copied from, even if resized, rotated, sent through a messenger or edited. Close matches by visual fingerprint; heavily edited copies confirmed by matching scene geometry | 99.9% of copies traced (1,049/1,050); unrelated photos wrongly matched 0 of 10,920 pairs |
-| Copies of evidence: compare | Lines the copy up with the stored original and outlines what changed in red; logged in the custody log | No change reported on 420 innocent copies; edits outlined 83% of the time (522/630), splices 95% (100/105) |
+| Copies of evidence: compare | Lines the copy up with the stored original and outlines what changed in red; logged in the custody log | No change reported on 420 innocent copies; edits outlined 93% of the time (682/735), splices 100% (105/105), drawn marks 99% (104/105) |
 
 **How to use it:** drop a photo into **Check a photo**. Matches appear under *Copies of your evidence*; click **Compare with this evidence** to see the changes. Every evidence page also has a **Compare a copy** box. Our own bouquet edit was found this way ("same scene, visibly changed, 430 matching points").
 
@@ -95,20 +140,32 @@ The lesson for an examiner: validate before you trust a tool, and always test wi
 
 ## How to use it
 
-Everything runs on one laptop. Setup is in the repo's `HANDOFF.md`; demo accounts use the password `chainproof123` (change it before any public demo).
+Everything runs on one laptop; setup is in the repo's `README.md`. Demo accounts (`investigator@`, `supervisor@` and `auditor@chainproof.dev`) use the password `chainproof123`. Change it before any public demo: `./demo.sh` refuses to start until you do.
 
-**Investigate a photo in the web app** (http://localhost:3100):
+**1. Capture on the phone** (Expo Go, or the installable Android app):
 
-1. Open **Check a photo** and drop the image in. You get a verdict, the findings, a clone overlay and an error-level heatmap. Each finding shows *How reliable*.
-2. To keep a record, pick a case and click **Open an examination**. The photo is filed as evidence with its hash, and the analysis runs again.
-3. On the evidence page, under **Examination**, add notes as you work: what you did and what you saw.
-4. Click **Record conclusion**: state H1 (e.g. "the image was altered") and H2 ("it is an unaltered original"), pick how strongly the findings support H1 over H2, and write your reasoning and limitations.
-5. A **different** examiner (e.g. the supervisor account) opens the same item and submits a **Technical review**: agree or disagree, with a comment.
-6. Click **Examination report (PDF)**. The PDF is registered by its hash, so anyone can check it on the public `/verify` page.
+1. Sign in and set **Server** to the laptop's address, for example `http://192.168.1.20:8000` on the same Wi-Fi, or the https address `./demo.sh` prints.
+2. Tap an open case, then **Capture**. Each photo or video is hashed and signed the moment it ends and shows **Signed at capture**.
+3. With no connection, captures wait under **Waiting to upload** and go up on their own when the phone is back online, signature intact. **Upload now** retries straight away.
+4. **Check a photo for editing** runs the photo checks on a picture from the gallery without recording anything.
+5. **This device** shows the phone's Ed25519 public key and the app version.
 
-Notes, conclusions and reviews go into the custody log, so they can't be edited or deleted. To change your mind, record a new conclusion; it needs a new review.
+**2. Examine in the web app** (http://localhost:3100):
 
-**Examine photos on a laptop without the server:**
+1. **Cases → New case**, then open it. The case page shows the facts, the integrity panel, the evidence list, a map of GPS points and the custody chain.
+2. **Import a file** for evidence that did not come from the app. It is tagged *Imported* in amber: we know when it arrived, not where it came from.
+3. Open an item. The viewer switches between **Preview**, **Original** (opening it is logged), **Clone map** and **ELA**. **Run analysis** gives the verdict and each finding with *How reliable* and *What else explains it*.
+4. Under **Compare a copy with this original**, drop a copy that is circulating. Switch between **Difference**, **Side by side** and **Swipe**. The copy is kept as an exhibit under its own SHA-256, and **Download the copy** is logged.
+5. Under **Examination**: **Add note** as you work, then **Record conclusion** (H1 and H2, how strongly the findings support H1 over H2, reasoning, limitations). A different examiner submits the **Technical review**. Then download the **Examination report (PDF)**.
+6. Back on the case: **Verify integrity** re-checks every hash and signature on the server and again in the browser, then has FreeTSA timestamp the log. **Export PDF** gives the case report. **Transfer custody** and **Close case** are logged too.
+
+**Check a photo** in the side bar is a quick check that is not recorded. It also searches all evidence for copies of the photo; **Compare with this evidence** opens the comparison, and **Open an examination** files the photo into a case.
+
+**3. Check a report anywhere:** **Public verify** opens in a new tab and needs no login. Drop an evidence file or a PDF report, or scan the QR code on the PDF. It matches exact SHA-256 hashes only, so a PDF changed by one byte is not recognised.
+
+Notes, conclusions, reviews, comparisons, views and exports all go into the custody log, so none of them can be edited or deleted. To change your mind, record a new conclusion; it needs a new review.
+
+4. **Examine photos on a laptop without the server:**
 
 ```bash
 cd server
@@ -131,7 +188,8 @@ uv run python -m scripts.validate run --root validation_data --out ../docs/valid
 
 The checks give indicators, not proof, and these gaps should be said out loud in the presentation:
 
-- **Splices are not detected in a photo examined on its own (0%).** A region pasted in from a different photo leaves no copy inside the image, and ELA proved unreliable. With the original in evidence, Compare outlines 95% of them.
+- **Splices are not detected in a photo examined on its own (0%).** A region pasted in from a different photo leaves no copy inside the image, and ELA proved unreliable. With the original in evidence, Compare outlines all 105 in the test set.
+- **Drawn marks need the original too.** A pen stroke drawn on a photo leaves no trace the standalone checks can see (0 of 105). Compare outlines 104 of 105, and 50 of 51 on the phones held out from tuning.
 - **AI images are caught only through Content Credentials.** If the label is stripped (a screenshot, a messenger), ChainProof can't tell. No open-source AI detector passed testing.
 - **The forgeries are synthetic.** A skilled forger who matches lighting and retouches edges will be harder to catch than these numbers suggest.
 - **Identical real objects can look like clones**, e.g. a stand of identical earring cards. The finding says so, and an examiner must confirm it by eye.

@@ -26,7 +26,7 @@ export default function CasesPage() {
       ) : cases?.length === 0 ? (
         <Card><p className="text-sm text-muted">No cases yet.{canCreate && " Create one, then capture evidence from the ChainProof phone app."}</p></Card>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+        <div className="overflow-x-auto rounded-lg bg-surface">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="eyebrow text-left">

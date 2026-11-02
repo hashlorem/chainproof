@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app import storage
 from app.core.anchor import anchor_if_intact, check_anchors, describe as describe_anchors
+from app.core.timefmt import utc_text
 from app.core.chain import append_entry, load_chain
 from app.core.security import current_user, require_role
 from app.db import get_db
@@ -156,10 +157,10 @@ def examination_report(evidence_id: str, user: User = Depends(current_user), db:
     now = fmt_ts(utcnow())
     subject = {
         "filename": ev.filename, "sha256": ev.sha256, "size": ev.size, "mime": ev.mime,
-        "source": f"Case {ev.case_id[:8].upper()}, evidence item received {ev.received_at}",
+        "source": f"Case {ev.case_id[:8].upper()}, evidence item received {utc_text(ev.received_at)}",
         "provenance": ("Signed by an enrolled device at capture; signature and hash verified on upload."
                        if ev.provenance == "device_signed" else "Imported file: no capture signature, origin unproven."),
-        "acquired_at": ev.received_at + (f" · trusted timestamp {ev.tsa_time}" if ev.tsa_time else ""),
+        "acquired_at": utc_text(ev.received_at) + (f" · existed by {utc_text(ev.tsa_time)} (FreeTSA)" if ev.tsa_time else ""),
         # The stored original is content-addressed; re-hash it now to show the copy examined is the evidence.
         "sha256_after": hashlib.sha256(storage.load(ev.storage_key)).hexdigest(),
         "custody_anchor": describe_anchors(check_anchors(load_chain(db, ev.case_id))),

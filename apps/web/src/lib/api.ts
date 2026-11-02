@@ -61,6 +61,8 @@ export interface MatchResponse { sha256: string; matches: EvidenceMatch[]; thres
 export interface CompareResult {
   aligned: string; changed_ratio: number; regions: number[][]; overlay_png: string; findings: Finding[];
   distance: number; questioned_sha256: string; validation: string | null;
+  /** Both images in the same frame, for the side-by-side and swipe views. */
+  original_jpg?: string; aligned_jpg?: string;
 }
 export type ConclusionLevel = "none" | "limited" | "moderate" | "strong" | "very_strong";
 export interface Examination {
