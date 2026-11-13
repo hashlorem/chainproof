@@ -2,7 +2,7 @@
 
 Each check was run on a labelled test set of benign and manipulated images. **False alarm** is how often the check fires on a benign image; **detection** is how often it fires on a manipulated one. Every rate has its sample size and a 95% Wilson confidence interval. This follows the approach of NIST CFTT (tool testing against known samples) and ISO/IEC 27041 (assuring a method is fit for purpose).
 
-- Run: 2026-10-30T12:05:28Z · commit `8f89df9476a0`
+- Run: 2026-10-30T12:05:28Z · commit `27172d26694a`
 - Test set: 525 benign + 525 manipulated images · manifest SHA-256 `e157801b3b07909f89103de533bb8b8b1d9eb77ecc78cc343d7ed1050467d2d9`
 - Environment: Python 3.12.13 · macOS-27.0.1-arm64-arm-64bit · numpy 2.5.4, opencv-python-headless 5.0.0.93, pillow 12.3.0, c2pa-python 0.38.0
 
