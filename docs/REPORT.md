@@ -1,7 +1,6 @@
 # ChainProof Forensics Upgrade Report
 
-Snapshot of 1 Nov 2026.
-Full numbers are in
+Snapshot of 1 Nov 2026. Full numbers are in
 [`docs/validation/VALIDATION.md`](validation/VALIDATION.md).
 
 ChainProof keeps photo and video evidence tamper-evident from the moment it is taken to the printed report, and checks photos for editing with a measured error rate on every finding. Untouched photos are wrongly flagged 0.8% of the time, and comparing a copy with the stored original outlines 93% of edits. This report covers what ChainProof does, how to use it, how we tested it and what it can't do.

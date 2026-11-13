@@ -1,8 +1,10 @@
 # ChainProof
 
-Tamper-evident digital evidence for investigators: a **phone app** that signs every photo the moment it is taken, a **web app** that tracks every touch in a hash-chained chain of custody, and **photo forensics** that flags edited or AI-generated images.
+ChainProof keeps photo and video evidence provable from the moment it's taken to the moment it's shown in a report. The phone app hashes and signs each capture before it leaves the device, the server keeps a hash-chained custody log that the database won't let anyone edit or delete, and every forensic check reports how often it's wrong.
 
-> IT course project · cybersecurity · web + mobile
+I built it on my own as a course project for an IT degree, October to November 2026.
+
+![A ChainProof case with four evidence items, their forensic findings and the custody log](docs/screenshot.png)
 
 ## What it proves
 
@@ -22,10 +24,10 @@ Tamper-evident digital evidence for investigators: a **phone app** that signs ev
 ## Layout
 
 ```
-apps/web/          Next.js 16 — investigators' dashboard + public verify page   (port 3100)
-apps/mobile/       Expo SDK 57 — capture, sign, offline upload queue, "check a photo"
+apps/web/          Next.js 16: investigators' dashboard + public verify page   (port 3100)
+apps/mobile/       Expo SDK 57: capture, sign, offline upload queue, "check a photo"
 packages/shared/   TypeScript: manifest types, RFC 8785 canonical JSON, Ed25519 sign/verify, chain verification
-server/            FastAPI — API, custody chain, TSA, forensics, PDF reports        (port 8000)
+server/            FastAPI: API, custody chain, TSA, forensics, PDF reports        (port 8000)
 ```
 
 The phone signs in TypeScript and the server verifies in Python. `packages/shared/test/vectors.json` is checked by **both** test suites so the two can never drift apart.
@@ -236,7 +238,7 @@ uv run pytest tests/test_migrations.py                              # fails if m
 - **Timestamps:** tokens must be signed by FreeTSA's pinned certificate (`tsa_cert_sha256` in `config.py`).
 - **Uploaded files:** they're untrusted. Only images and PDFs display inline. Everything else downloads, under a sandbox CSP.
 
-## Honest limitations
+## Limitations
 
 - A device signature proves **which enrolled device** signed the file, not that the scene is real. The device clock can be wrong, which is why the TSA timestamp at upload matters.
 - Forensic checks give **indicators, not proof**.
@@ -244,3 +246,7 @@ uv run pytest tests/test_migrations.py                              # fails if m
 - Signing keys are software keys in the Keychain/Keystore. Hardware-backed keys (Secure Enclave / StrongBox) need a development build and are future work.
 - The login limiter lives in memory, so it resets on restart and covers one API process.
 - Files are stored on local disk (content-addressed, read-only). MinIO/S3 with object lock is the production path. `docker-compose.yml` already includes MinIO.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE). The test photos in `server/tests/fixtures/vision` come from the VISION dataset and are CC BY-SA 4.0.
